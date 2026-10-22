@@ -8,4 +8,4 @@ Cue Duel does not collect, store or share any personal data.
   when you uninstall the app.
 - The only permission the app uses is vibration, for haptic feedback.
 
-Questions: open an issue at https://github.com/OPaperStream/CueDuel/issues
+Questions: open an issue at https://github.com/LucasTHCRR/CueDuel/issues
