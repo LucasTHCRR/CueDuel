@@ -108,6 +108,23 @@ const ROWS := [
 	["Speed", "Tempo", "Velocidad", "Hız"],
 	["Stop", "Stopp", "Parar", "Dur"],
 	["Open table", "Offener Tisch", "Mesa abierta", "Açık masa"],
+	["Online", "Online", "En línea", "Çevrimiçi"],
+	["Online game", "Online-Spiel", "Partida en línea", "Çevrimiçi oyun"],
+	["Host a game", "Spiel hosten", "Crear partida", "Oyun kur"],
+	["Join a game", "Spiel beitreten", "Unirse a una partida", "Oyuna katıl"],
+	["Join", "Beitreten", "Unirse", "Katıl"],
+	["Waiting for a friend…", "Warte auf einen Freund…", "Esperando a un amigo…", "Bir arkadaş bekleniyor…"],
+	["Same Wi-Fi or hotspot: {0}", "Gleiches WLAN oder Hotspot: {0}", "Mismo Wi-Fi o punto de acceso: {0}", "Aynı Wi-Fi veya hotspot: {0}"],
+	["Internet: {0}", "Internet: {0}", "Internet: {0}", "İnternet: {0}"],
+	["Internet: forward UDP port {0} on your router", "Internet: UDP-Port {0} im Router freigeben", "Internet: abre el puerto UDP {0} en tu router", "İnternet: yönlendiricide UDP {0} portunu aç"],
+	["Looking for an internet address…", "Suche Internet-Adresse…", "Buscando dirección de internet…", "İnternet adresi aranıyor…"],
+	["Connecting…", "Verbinde…", "Conectando…", "Bağlanıyor…"],
+	["Connected, waiting for the host…", "Verbunden, warte auf den Host…", "Conectado, esperando al anfitrión…", "Bağlandı, kurucu bekleniyor…"],
+	["Could not connect", "Verbindung fehlgeschlagen", "No se pudo conectar", "Bağlanılamadı"],
+	["Connection lost", "Verbindung verloren", "Conexión perdida", "Bağlantı koptu"],
+	["Waiting for the host…", "Warte auf den Host…", "Esperando al anfitrión…", "Kurucu bekleniyor…"],
+	["Opponent", "Gegner", "Rival", "Rakip"],
+	["Opponent wins!", "Gegner gewinnt!", "¡Gana el rival!", "Rakip kazandı!"],
 ]
 
 var lang := "en"

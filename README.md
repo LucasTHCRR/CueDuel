@@ -10,12 +10,14 @@
 - Computer opponent with four levels. Hard and Pro play every candidate shot through
   the simulation and care about where the cue ball ends up.
 - Two players on one device
+- Online and local network games for two. One phone hosts, the other joins by address
+  (same Wi-Fi, a hotspot, or over the internet with UPnP or a forwarded UDP port)
 - 8-ball rules: break, open table, fouls (cue ball potted, wrong ball first, no rail
   after contact), ball in hand, 8 on the break goes back on the spot
 - Replays of the last 12 games
 - Statistics per AI level
 - English, German, Spanish and Turkish
-- No ads, no tracking, no internet permission
+- No ads, no tracking, no servers. Internet is only used for games you host or join yourself
 
 ## Building
 

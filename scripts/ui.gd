@@ -12,6 +12,7 @@ const C_DIM := Color("b8b0a8")
 
 var game
 var fine := 0
+var fine_t := 0.0
 var root: Control
 var hud: Control
 var toast_lb: Label
@@ -48,6 +49,7 @@ func _ready() -> void:
 	_build_hud()
 	_build_menu()
 	_build_settings()
+	_build_online()
 	_build_stats()
 	_build_replays()
 	_build_balls()
@@ -284,6 +286,7 @@ func _refresh(name: String) -> void:
 	match name:
 		"menu": _fill_menu()
 		"settings": _fill_settings()
+		"online": _fill_online()
 		"stats": _fill_stats()
 		"replays": _fill_replays()
 		"balls": _fill_balls()
@@ -448,7 +451,12 @@ func _hold_btn(t: String, dir: int) -> Button:
 	b.text = t
 	b.custom_minimum_size = Vector2(84, 64)
 	b.add_theme_font_size_override("font_size", 40)
-	b.button_down.connect(func(): fine = dir)
+	b.focus_mode = Control.FOCUS_NONE
+	b.button_down.connect(func():
+		fine = dir
+		fine_t = 0.0
+		if game and game.state == game.St.AIM:
+			game.aim += dir * 0.012)
 	b.button_up.connect(func(): fine = 0)
 	return b
 
@@ -546,6 +554,7 @@ func _build_menu() -> void:
 	play.add_theme_font_size_override("font_size", 32)
 	v.add_child(play)
 	v.add_child(_btn("2 players", func(): _go(func(): game.start_game(true))))
+	v.add_child(_btn("Online", func(): open("online")))
 	var r := _row(v)
 	r.add_child(_grow(_btn("Replays", func(): open("replays"))))
 	r.add_child(_grow(_btn("Statistics", func(): open("stats"))))
@@ -560,6 +569,70 @@ func _fill_menu() -> void:
 
 func _pct(a, b) -> String:
 	return "%d %%" % roundi(100.0 * a / b) if b > 0 else "–"
+
+
+# ---------- online ----------
+
+var _on_status: Label
+var _on_ip: LineEdit
+
+
+func _build_online() -> void:
+	var v := _overlay("online")
+	var h := _label("Online game", 34)
+	h.add_theme_font_override("font", font_black)
+	v.add_child(h)
+	v.add_child(_btn("Host a game", _on_host, C_GREEN))
+	v.add_child(_label("Join a game", 22, C_DIM))
+	_on_ip = LineEdit.new()
+	_on_ip.placeholder_text = "192.168.0.10"
+	_on_ip.custom_minimum_size.y = 64
+	_on_ip.add_theme_font_size_override("font_size", 28)
+	v.add_child(_on_ip)
+	v.add_child(_btn("Join", _on_join))
+	_on_status = _label("", 20, C_DIM, false)
+	_on_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(_on_status)
+	v.add_child(_btn("Back", _on_back, C_GREEN))
+	Net.status.connect(_on_net_status)
+	Net.connected.connect(_on_net_connected)
+	Net.failed.connect(_on_net_failed)
+
+
+func _on_host() -> void:
+	_on_status.text = Net.host_text() if Net.host_game() else L.t("Could not connect")
+
+
+func _on_join() -> void:
+	var ip := _on_ip.text.strip_edges()
+	if ip == "":
+		return
+	_on_status.text = L.t("Connecting…") if Net.join_game(ip) else L.t("Could not connect")
+
+
+func _on_back() -> void:
+	Net.stop()
+	close_top()
+
+
+func _on_net_status(t: String) -> void:
+	_on_status.text = t
+
+
+func _on_net_connected() -> void:
+	if Net.host:
+		game.online_begin()
+	else:
+		_on_status.text = L.t("Connected, waiting for the host…")
+
+
+func _on_net_failed() -> void:
+	_on_status.text = L.t("Could not connect")
+
+
+func _fill_online() -> void:
+	if not Net.active:
+		_on_status.text = ""
 
 
 # ---------- settings ----------
@@ -856,7 +929,7 @@ func _build_result() -> void:
 			game.start_replay(Store.replays[0])
 		else:
 			open_menu())))
-	r.add_child(_grow(_btn("Again", func(): _go(func(): game.start_game(game.duo)), C_GREEN), 1.6))
+	r.add_child(_grow(_btn("Again", func(): _go(func(): game.rematch()), C_GREEN), 1.6))
 
 
 func show_result(title: String, good: bool, reason: String, tiles: Array) -> void:

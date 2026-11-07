@@ -117,10 +117,10 @@ func _csg_cut(mat: Material, radius: float) -> CSGCombiner3D:
 func _environment() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color("0d0b0a")
+	env.background_color = Color("2a2118")
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("5a4a3c")
-	env.ambient_light_energy = 0.55
+	env.ambient_light_color = Color("8a7560")
+	env.ambient_light_energy = 1.0
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.05
 	env.glow_enabled = true
@@ -155,7 +155,7 @@ func _room() -> void:
 	floor_mat.uv1_scale = Vector3(6, 30, 1)
 	floor_mat.roughness = 0.55
 	_box(Vector3(30, 0.1, 30), Vector3(0, -3.25, 0), floor_mat, self, false)
-	var wall := _mat(Color("1c3a2e"), 0.9)
+	var wall := _mat(Color("2f5e4a"), 0.9)
 	var panel := _mat(Color("3b2010"), 0.6)
 	for side in [[Vector3(0, 1.5, -13), Vector3(26, 9.5, 0.2)], [Vector3(0, 1.5, 13), Vector3(26, 9.5, 0.2)],
 			[Vector3(-13, 1.5, 0), Vector3(0.2, 9.5, 26)], [Vector3(13, 1.5, 0), Vector3(0.2, 9.5, 26)]]:
@@ -163,6 +163,15 @@ func _room() -> void:
 		var p: Vector3 = side[0]
 		var sz: Vector3 = side[1]
 		_box(Vector3(maxf(sz.x - 0.05, 0.3), 1.6, maxf(sz.z - 0.05, 0.3)) , Vector3(p.x * 0.995, -2.4, p.z * 0.995), panel, self, false)
+	# Decke, sonst schaut die Kamera ins schwarze Nichts
+	_box(Vector3(26.4, 0.2, 26.4), Vector3(0, 6.35, 0), _mat(Color("4a3a2c"), 0.9), self, false)
+	var fill := OmniLight3D.new()
+	fill.position = Vector3(0, 5.0, 0)
+	fill.omni_range = 24.0
+	fill.light_energy = 0.9
+	fill.light_color = Color("ffe9c9")
+	fill.shadow_enabled = false
+	add_child(fill)
 	# lamp over the table; hidden in the top view where it would block the camera
 	lamp = Node3D.new()
 	add_child(lamp)
@@ -212,8 +221,9 @@ func _table() -> void:
 		var mid := (a2 + b2) / 2
 		if Vector2(Sim.CX, Sim.CY).distance_to(mid + out) < Vector2(Sim.CX, Sim.CY).distance_to(mid):
 			out = -out
-		var c := mid + out * 5.0
-		var cb := _csg_box(Vector3(d.length() * S + 0.02, 0.15, 0.1), w(c.x, c.y, 0.075))
+		# etwas länger und dicker, damit an den Knicken und zum Rahmen keine Lücke bleibt
+		var c := mid + out * 6.0
+		var cb := _csg_box(Vector3(d.length() * S + 0.12, 0.15, 0.12), w(c.x, c.y, 0.075))
 		cb.rotation.y = -d.angle()
 		cush.add_child(cb)
 	for node in [frame, bed, cush]:

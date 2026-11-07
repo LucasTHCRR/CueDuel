@@ -2,7 +2,7 @@ extends Node3D
 ## Game controller: turn order, input, AI, replays and statistics.
 ## Game logic runs on the fixed 60 Hz physics tick so replays stay exact.
 
-enum St { IDLE, PLACE, AIM, AI, STRIKE, MOVING, RP, OVER }
+enum St { IDLE, PLACE, AIM, AI, STRIKE, MOVING, RP, OVER, WAIT }
 
 var sim := Sim.new()
 var view: TableView
@@ -16,6 +16,8 @@ var is_break := true
 var on_eight := false
 var winner := ""
 var duo := false
+var online := false
+var my_side := "player"
 var in_game := false
 var aim := -PI / 2
 var power := 0.55
@@ -37,6 +39,11 @@ var _ai_go := 0
 var _strike_t := 0.0
 var _strike_from := 0.0
 var _drag = null
+var _rack_nums := []
+var _pending_snap := {}
+var _wait_snap := false
+var _remote_shot := false
+var _fin := []
 var _grab = null
 
 
@@ -48,6 +55,8 @@ func _ready() -> void:
 	ui = GameUI.new()
 	ui.game = self
 	add_child(ui)
+	Net.got.connect(_on_net)
+	Net.lost.connect(_on_lost)
 	_new_rack()
 	state = St.IDLE
 	ui.open_menu()
@@ -116,7 +125,9 @@ func _dev_args() -> void:
 
 # ---------- flow ----------
 
-func start_game(two_players: bool) -> void:
+func start_game(two_players: bool, net := false) -> void:
+	if not net:
+		_leave_online()
 	_cancel_ai()
 	duo = two_players
 	replay = null
@@ -128,6 +139,7 @@ func start_game(two_players: bool) -> void:
 
 
 func start_replay(log: Dictionary) -> void:
+	_leave_online()
 	_cancel_ai()
 	_save_log("Aborted")
 	in_game = false
@@ -150,6 +162,9 @@ func stop_replay() -> void:
 func restart() -> void:
 	if replay != null:
 		return
+	if online:
+		online_again()
+		return
 	_cancel_ai()
 	_new_rack()
 
@@ -157,7 +172,18 @@ func restart() -> void:
 func _new_rack() -> void:
 	if rec != null and replay == null:
 		_save_log("Aborted")
-	var nums: Array = replay.log.nums.duplicate() if replay != null else Sim.rack_order(rng)
+	var nums: Array
+	if replay != null:
+		nums = replay.log.nums.duplicate()
+	elif online and not Net.host:
+		nums = _rack_nums.duplicate()
+	else:
+		nums = Sim.rack_order(rng)
+	if online and Net.host and replay == null:
+		Net.send({"t": "rack", "nums": nums})
+	_fin = []
+	_pending_snap = {}
+	_wait_snap = false
 	sim.setup(nums)
 	view.reset_balls(sim)
 	turn = "player"
@@ -178,7 +204,10 @@ func _begin() -> void:
 	if replay != null:
 		_next_rp()
 		return
-	if turn == "player" or duo:
+	if online and turn != my_side:
+		state = St.WAIT
+		_say(msg)
+	elif turn == "player" or duo:
 		if hand:
 			state = St.PLACE
 			if sim.alive[0] == 0 or not sim.valid_cue_pos(sim.px[0], sim.py[0], kitchen):
@@ -225,6 +254,9 @@ func shoot_pressed() -> void:
 
 
 func _strike() -> void:
+	if online and not _remote_shot:
+		Net.send({"t": "shot", "a": aim, "p": maxf(0.05, power), "pl": place_rec})
+	_remote_shot = false
 	_strike_t = 0.0
 	_strike_from = Sim.BR + 3 + power * 95
 	state = St.STRIKE
@@ -243,6 +275,20 @@ func _shoot(a: float, p: float) -> void:
 
 
 func _resolve() -> void:
+	if online and turn != my_side:
+		# Der Schütze schickt das Ergebnis, wir übernehmen es nur
+		_wait_snap = true
+		if not _pending_snap.is_empty():
+			_apply_snap(_pending_snap)
+		return
+	_resolve_local()
+	if online:
+		Net.send({"t": "snap", "px": sim.px, "py": sim.py, "al": sim.alive, "turn": turn,
+			"groups": groups, "hand": hand, "kitchen": kitchen, "brk": is_break, "msg": msg,
+			"fin": _fin, "gs": gs})
+
+
+func _resolve_local() -> void:
 	var sh := turn
 	var o := _other(sh)
 	var g: String = groups[sh]
@@ -292,6 +338,7 @@ func _resolve() -> void:
 
 
 func _finish(win_side: String, shooter: String, clean: bool) -> void:
+	_fin = [win_side, shooter, clean]
 	winner = win_side
 	state = St.OVER
 	var player_won := winner == "player"
@@ -310,7 +357,10 @@ func _finish(win_side: String, shooter: String, clean: bool) -> void:
 		reason = L.t("You potted the 8 " + k)
 	else:
 		reason = L.t("The AI potted the 8 " + k)
-	_say(L.t("{0} wins!", [_name(winner)]) if duo else (L.t("You win!") if player_won else L.t("AI wins!")))
+	if online:
+		_say(L.t("You win!") if winner == my_side else L.t("Opponent wins!"))
+	else:
+		_say(L.t("{0} wins!", [_name(winner)]) if duo else (L.t("You win!") if player_won else L.t("AI wins!")))
 	in_game = false
 	if not duo:
 		var s := Store.stats
@@ -339,6 +389,9 @@ func _finish(win_side: String, shooter: String, clean: bool) -> void:
 	]
 	var title := L.t("{0} WINS", [_name(winner).to_upper()]) if duo else (L.t("VICTORY!") if player_won else L.t("DEFEAT"))
 	var good := player_won or duo
+	if online:
+		good = winner == my_side
+		title = L.t("VICTORY!") if good else L.t("DEFEAT")
 	get_tree().create_timer(1.4).timeout.connect(func():
 		if state == St.OVER and replay == null:
 			ui.show_result(title, good, reason, tiles))
@@ -351,6 +404,104 @@ func _save_log(res: String) -> void:
 		rec.res = res
 		Store.add_replay(rec)
 	rec = null
+
+
+# ---------- online ----------
+
+func online_begin() -> void:
+	online = true
+	my_side = "player"
+	ui.close_all()
+	start_game(true, true)
+
+
+func rematch() -> void:
+	if online:
+		online_again()
+	else:
+		start_game(duo)
+
+
+func online_again() -> void:
+	if not online:
+		return
+	if Net.host:
+		ui.close_all()
+		start_game(true, true)
+	else:
+		Net.send({"t": "again"})
+		ui.toast(L.t("Waiting for the host…"))
+
+
+func _leave_online() -> void:
+	if online or Net.active:
+		online = false
+		my_side = "player"
+		Net.stop()
+
+
+func _on_lost() -> void:
+	if not online:
+		return
+	_leave_online()
+	_cancel_ai()
+	in_game = false
+	state = St.IDLE
+	ui.open_menu()
+	ui.toast(L.t("Connection lost"))
+
+
+func _on_net(d: Dictionary) -> void:
+	match d.get("t", ""):
+		"rack":
+			online = true
+			my_side = "ai"
+			_rack_nums = d.nums
+			ui.close_all()
+			start_game(true, true)
+		"again":
+			if online and Net.host:
+				online_again()
+		"shot":
+			if state != St.WAIT:
+				return
+			if d.pl != null:
+				sim.place_cue(d.pl[0], d.pl[1])
+				place_rec = d.pl
+				hand = false
+			aim = d.a
+			power = d.p
+			ui.set_power(power)
+			_remote_shot = true
+			_strike()
+		"snap":
+			if _wait_snap:
+				_apply_snap(d)
+			else:
+				_pending_snap = d
+
+
+func _apply_snap(d: Dictionary) -> void:
+	_pending_snap = {}
+	_wait_snap = false
+	sim.px = d.px
+	sim.py = d.py
+	sim.alive = d.al
+	sim.vx.fill(0.0)
+	sim.vy.fill(0.0)
+	turn = d.turn
+	groups = d.groups
+	hand = d.hand
+	kitchen = d.kitchen
+	is_break = d.brk
+	msg = d.msg
+	for k in d.gs:
+		if k != "t0":
+			gs[k] = d.gs[k]
+	if not d.fin.is_empty():
+		_finish(d.fin[0], d.fin[1], d.fin[2])
+	else:
+		_begin()
 
 
 # ---------- replays ----------
@@ -456,7 +607,10 @@ func _tick() -> void:
 
 func _process(delta: float) -> void:
 	if state == St.AIM and ui.fine != 0:
-		aim += ui.fine * delta * 0.09
+		ui.fine_t += delta
+		# kurzer Tipp = ein kleiner Schritt, danach gedrückt halten = laufend
+		if ui.fine_t > 0.3:
+			aim += ui.fine * delta * 0.12
 	view.sync(sim, delta)
 	var cue := Vector2(sim.px[0], sim.py[0])
 	var show_stick := sim.alive[0] == 1 and state in [St.AIM, St.AI, St.STRIKE, St.RP]
@@ -548,6 +702,8 @@ func _other(side: String) -> String:
 
 
 func _name(side: String) -> String:
+	if online:
+		return L.t("You") if side == my_side else L.t("Opponent")
 	if duo:
 		return L.t("Player 1") if side == "player" else L.t("Player 2")
 	return L.t("You") if side == "player" else L.t("AI")
