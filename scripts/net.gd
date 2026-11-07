@@ -29,6 +29,7 @@ var _lobby_id := ""
 var _lobby_token := ""
 var _authed := false
 var _players := 1
+var _public := false
 
 
 func _ready() -> void:
@@ -61,6 +62,7 @@ func host_game(name := "", pw := "", public := false) -> bool:
 	stop()
 	password = pw
 	lobby_name = name
+	_public = public
 	_players = 1
 	_authed = false
 	_peer = ENetMultiplayerPeer.new()
@@ -74,8 +76,6 @@ func host_game(name := "", pw := "", public := false) -> bool:
 	_upnp_done = false
 	status.emit(host_text())
 	WorkerThreadPool.add_task(_try_upnp)
-	if public:
-		_register()
 	return true
 
 
@@ -169,7 +169,9 @@ func _req(method: int, path: String, body: Dictionary, cb: Callable) -> void:
 
 
 func _register() -> void:
-	var body := {"name": lobby_name, "port": PORT, "locked": password != "",
+	var ips := local_ips()
+	var body := {"name": lobby_name, "port": PORT, "locked": password != "", "open": _ext != "",
+		"lan": ips[0] if not ips.is_empty() else "",
 		"version": str(ProjectSettings.get_setting("application/config/version", ""))}
 	_req(HTTPClient.METHOD_POST, "/lobbies", body, func(data):
 		if data is Dictionary and data.has("id") and active and host:
@@ -240,4 +242,9 @@ func _try_upnp() -> void:
 
 func _upnp_finished() -> void:
 	if active and host:
-		status.emit(host_text())
+		if _public and _lobby_id == "":
+			_register()
+		var t := host_text()
+		if _public and _ext == "":
+			t += "\n" + L.t("Only players in your network see your game in the list")
+		status.emit(t)

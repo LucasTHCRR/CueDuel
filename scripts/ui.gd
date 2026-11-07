@@ -54,6 +54,7 @@ func _ready() -> void:
 	_build_replays()
 	_build_balls()
 	_build_result()
+	_build_loading()
 	L.changed.connect(_retranslate)
 	_retranslate()
 
@@ -573,6 +574,42 @@ func _pct(a, b) -> String:
 	return "%d %%" % roundi(100.0 * a / b) if b > 0 else "–"
 
 
+# ---------- loading ----------
+
+var _loading: Control
+
+
+func _build_loading() -> void:
+	_loading = ColorRect.new()
+	_loading.color = Color("14110f")
+	_loading.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_loading.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(_loading)
+	var c := CenterContainer.new()
+	c.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_loading.add_child(c)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 14)
+	c.add_child(v)
+	var logo := TextureRect.new()
+	logo.texture = load("res://icon.svg")
+	logo.custom_minimum_size = Vector2(140, 140)
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	v.add_child(logo)
+	v.add_child(_label("Loading…", 28, C_DIM))
+	if game.view._apply_mats:
+		_loading.visible = false
+	else:
+		game.view.ready_done.connect(_hide_loading)
+
+
+func _hide_loading() -> void:
+	var tw := create_tween()
+	tw.tween_property(_loading, "modulate:a", 0.0, 0.25)
+	tw.tween_callback(func(): _loading.visible = false)
+
+
 # ---------- online ----------
 
 var _on_status: Label
@@ -669,7 +706,7 @@ func _build_lobbies() -> void:
 	h.add_theme_font_override("font", font_black)
 	v.add_child(h)
 	var sc := ScrollContainer.new()
-	sc.custom_minimum_size = Vector2(0, 520)
+	sc.custom_minimum_size = Vector2(560, 520)
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	v.add_child(sc)
 	_lob_list = VBoxContainer.new()
@@ -700,13 +737,21 @@ func _on_lobbies(list: Array) -> void:
 		shown += 1
 		var row := _row(_lob_list, 8)
 		var locked: bool = bool(l.get("locked", false))
-		var nm := _label("%s" % str(l.get("name", "")).left(24), 24, Color.WHITE, false)
+		var nm := _label(str(l.get("name", "")).left(24), 24, Color.WHITE, false)
+		nm.autowrap_mode = TextServer.AUTOWRAP_OFF
+		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nm.custom_minimum_size.x = 160
 		nm.clip_text = true
 		row.add_child(nm)
-		row.add_child(_label("Password" if locked else "Open", 18, Color("f5b041") if locked else C_DIM))
+		var tag := _label("Password" if locked else "Open", 18, Color("f5b041") if locked else C_DIM)
+		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
+		tag.custom_minimum_size.x = 100
+		row.add_child(tag)
 		var item: Dictionary = l
-		row.add_child(_btn("Join", func(): _pick_lobby(item)))
+		var jb := _btn("Join", func(): _pick_lobby(item))
+		jb.custom_minimum_size = Vector2(130, 64)
+		row.add_child(jb)
 	_lob_status.text = "" if shown > 0 else L.t("No games found")
 
 
@@ -728,7 +773,10 @@ func _pick_lobby(l: Dictionary) -> void:
 
 func _join_pick(pw: String) -> void:
 	var port := int(_pick.get("port", Net.PORT))
-	if Net.join_game(str(_pick.get("ip", "")), port, pw):
+	var ip := str(_pick.get("ip", ""))
+	if bool(_pick.get("same_net", false)) and str(_pick.get("lan", "")) != "":
+		ip = str(_pick.lan)
+	if Net.join_game(ip, port, pw):
 		_lob_status.text = L.t("Connecting…")
 	else:
 		_lob_status.text = L.t("Could not connect")

@@ -123,6 +123,7 @@ const ROWS := [
 	["Loading…", "Lade…", "Cargando…", "Yükleniyor…"],
 	["No games found", "Keine Spiele gefunden", "No hay partidas", "Oyun bulunamadı"],
 	["The list could not be reached", "Die Liste ist nicht erreichbar", "No se puede acceder a la lista", "Listeye ulaşılamadı"],
+	["Only players in your network see your game in the list", "Nur Spieler in deinem Netz sehen dein Spiel in der Liste", "Solo los jugadores de tu red ven tu partida en la lista", "Listede oyununu yalnızca ağındaki oyuncular görür"],
 	["Wrong password", "Falsches Passwort", "Contraseña incorrecta", "Yanlış şifre"],
 	["Online", "Online", "En línea", "Çevrimiçi"],
 	["Online game", "Online-Spiel", "Partida en línea", "Çevrimiçi oyun"],

@@ -5,8 +5,8 @@ extends Node3D
 
 const S := 0.01
 const BALL_COLORS := {1: "f0c800", 2: "0046aa", 3: "c81e1e", 4: "5a1e82", 5: "eb7800", 6: "007832", 7: "781e1e", 8: "141414"}
-const FELT := Color("14784a")
-const CLOTH := Color("117040")
+const FELT := Color("0f6a42")
+const CLOTH := Color("0d5e3a")
 
 var cam: Camera3D
 var balls: Array[MeshInstance3D] = []
@@ -26,6 +26,9 @@ var env: Environment
 var _sphere: SphereMesh
 var _csg := {}
 
+signal ready_done
+
+const JAW_EXT := 14.0
 const BAKED := "res://assets/table/%s.res"
 
 
@@ -127,7 +130,7 @@ func _environment() -> void:
 	env.background_color = Color("2a2118")
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color("8a7560")
-	env.ambient_light_energy = 1.0
+	env.ambient_light_energy = 0.7
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.05
 	env.glow_enabled = true
@@ -149,8 +152,9 @@ func _environment() -> void:
 	spot.rotation_degrees = Vector3(-90, 0, 0)
 	spot.spot_range = 8.0
 	spot.spot_angle = 70.0
-	spot.spot_attenuation = 0.6
-	spot.light_energy = 1.8
+	spot.spot_attenuation = 1.1
+	spot.light_energy = 3.2
+	spot.spot_range = 9.0
 	spot.light_color = Color("fff0d0")
 	spot.shadow_enabled = true
 	add_child(spot)
@@ -170,8 +174,6 @@ func _room() -> void:
 		var p: Vector3 = side[0]
 		var sz: Vector3 = side[1]
 		_box(Vector3(maxf(sz.x - 0.05, 0.3), 1.6, maxf(sz.z - 0.05, 0.3)) , Vector3(p.x * 0.995, -2.4, p.z * 0.995), panel, self, false)
-	# Decke, sonst schaut die Kamera ins schwarze Nichts
-	_box(Vector3(26.4, 0.2, 26.4), Vector3(0, 6.35, 0), _mat(Color("4a3a2c"), 0.9), self, false)
 	var fill := OmniLight3D.new()
 	fill.position = Vector3(0, 5.0, 0)
 	fill.omni_range = 24.0
@@ -190,6 +192,8 @@ func _room() -> void:
 	_box(Vector3(0.88, 0.02, 4.1), Vector3(0, 3.16, 0), glow, lamp, false)
 	for z in [-1.5, 1.5]:
 		_box(Vector3(0.024, 3.0, 0.024), Vector3(0, 4.9, z), _mat(Color("222222")), lamp, false)
+	# Decke hängt an der Lampe, damit sie in der Draufsicht verschwindet
+	_box(Vector3(26.4, 0.2, 26.4), Vector3(0, 6.35, 0), _mat(Color("4a3a2c"), 0.9), lamp, false)
 
 
 func _table() -> void:
@@ -241,6 +245,20 @@ func _table() -> void:
 		cyl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		cyl.position = w(p.x, p.y, (rh - 0.11) / 2)
 		add_child(cyl)
+	# Messingring um jede Tasche, deckt auch die Kanten sauber ab
+	var brass := _mat(Color("c9a24a"), 0.3, 0.9)
+	for p in Sim.POCKETS:
+		var ring := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = pr - 0.004
+		tm.outer_radius = pr + 0.026
+		tm.rings = 32
+		tm.ring_segments = 8
+		ring.mesh = tm
+		ring.material_override = brass
+		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		ring.position = w(p.x, p.y, rh + 0.002)
+		add_child(ring)
 	# diamonds
 	var pearl := _mat(Color("f3e9c9"), 0.3, 0.4)
 	for k in range(1, 8):
@@ -275,9 +293,13 @@ func _build_csg(felt: Material, wood: Material, cushion: Material, tw: float, td
 	inner.operation = CSGShape3D.OPERATION_SUBTRACTION
 	frame.add_child(inner)
 	var cush := _csg_cut(cushion, pr)
-	for sg in Sim.SEGS:
+	for si in Sim.SEGS.size():
+		var sg: Array = Sim.SEGS[si]
 		var a2: Vector2 = sg[0]
 		var b2: Vector2 = sg[1]
+		# Die Backen laufen bis in die Tasche, das Loch schneidet sie rund
+		if si >= 6:
+			b2 += (b2 - a2).normalized() * JAW_EXT
 		var d := b2 - a2
 		var out := Vector2(-d.y, d.x).normalized()
 		var mid := (a2 + b2) / 2
@@ -415,6 +437,7 @@ func _make_ball_materials() -> void:
 		m.clearcoat_roughness = 0.05
 		ball_mats[n] = m
 	_apply_mats = true
+	ready_done.emit()
 
 
 var _apply_mats := false
@@ -602,10 +625,10 @@ func bake() -> void:
 func apply_quality() -> void:
 	var hi := int(Store.cfg.quality) == 1
 	env.glow_enabled = hi
-	sun.shadow_enabled = hi
+	sun.shadow_enabled = true
 	spot.shadow_enabled = hi
 	_sphere.radial_segments = 32 if hi else 20
 	_sphere.rings = 16 if hi else 10
 	var vp := get_viewport()
 	vp.msaa_3d = Viewport.MSAA_2X if hi else Viewport.MSAA_DISABLED
-	vp.scaling_3d_scale = 1.0 if hi else 0.75
+	vp.scaling_3d_scale = 1.0 if hi else 0.85

@@ -61,11 +61,18 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.split("?")[0] != "/v1/lobbies":
             return self.send(404, {})
+        me = self.ip()
         with lock:
             purge()
-            out = [{"id": k, "name": v["name"], "ip": v["ip"], "port": v["port"],
-                    "locked": v["locked"], "players": v["players"], "version": v["version"]}
-                   for k, v in sorted(lobbies.items(), key=lambda x: -x[1]["created"])]
+            out = []
+            for k, v in sorted(lobbies.items(), key=lambda x: -x[1]["created"]):
+                same = v["ip"] == me
+                # Spiele ohne offenen Port sieht nur, wer im selben Netz sitzt
+                if not v["open"] and not same:
+                    continue
+                out.append({"id": k, "name": v["name"], "ip": v["ip"], "lan": v["lan"], "same_net": same,
+                            "port": v["port"], "locked": v["locked"], "players": v["players"],
+                            "version": v["version"]})
         self.send(200, out)
 
     def do_POST(self):
@@ -79,6 +86,9 @@ class H(BaseHTTPRequestHandler):
                 port = 0
             if not 1024 <= port <= 65535:
                 return self.send(400, {})
+            lan = str(d.get("lan", ""))
+            if not re.fullmatch(r"(192\.168|10\.\d{1,3}|172\.(1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}", lan):
+                lan = ""
             with lock:
                 purge()
                 if len(lobbies) >= MAX_LOBBIES or sum(1 for v in lobbies.values() if v["ip"] == ip) >= MAX_PER_IP:
@@ -87,6 +97,7 @@ class H(BaseHTTPRequestHandler):
                 tok = secrets.token_hex(16)
                 lobbies[lid] = {"name": clean_name(d.get("name", "")), "ip": ip, "port": port,
                                 "locked": bool(d.get("locked", False)), "players": 1,
+                                "open": bool(d.get("open", False)), "lan": lan,
                                 "version": str(d.get("version", ""))[:16], "token": tok,
                                 "created": time.time(), "seen": time.time()}
             return self.send(200, {"id": lid, "token": tok})
