@@ -614,6 +614,7 @@ func _hide_loading() -> void:
 
 var _on_status: Label
 var _on_ip: LineEdit
+var _on_pw: LineEdit
 var _host_name: LineEdit
 var _host_pw: LineEdit
 var _host_pub := true
@@ -635,10 +636,11 @@ func _build_online() -> void:
 	v.add_child(_btn("Host a game", func(): open("host")))
 	v.add_child(_label("Join with address", 22, C_DIM))
 	_on_ip = LineEdit.new()
-	_on_ip.placeholder_text = "192.168.0.10"
+	_on_ip.placeholder_text = L.t("Address or room code")
 	_on_ip.custom_minimum_size.y = 64
 	_on_ip.add_theme_font_size_override("font_size", 28)
 	v.add_child(_on_ip)
+	_on_pw = _field(v, "Password (if any)")
 	v.add_child(_btn("Join", _on_join))
 	_on_status = _label("", 20, C_DIM, false)
 	_on_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -776,8 +778,9 @@ func _join_pick(pw: String) -> void:
 	var ips := []
 	if bool(_pick.get("same_net", false)) and _pick.get("lans") is Array:
 		ips = _pick.lans.duplicate()
-	ips.append(str(_pick.get("ip", "")))
-	if Net.join_any(ips, port, pw):
+	if bool(_pick.get("open", false)):
+		ips.append(str(_pick.get("ip", "")))
+	if Net.join_any(ips, port, pw, str(_pick.get("id", ""))):
 		_lob_status.text = L.t("Connecting…")
 	else:
 		_lob_status.text = L.t("Could not connect")
@@ -803,7 +806,12 @@ func _on_join() -> void:
 	var ip := _on_ip.text.strip_edges()
 	if ip == "":
 		return
-	_on_status.text = L.t("Connecting…") if Net.join_game(ip) else L.t("Could not connect")
+	var ok: bool
+	if ip.length() == 8 and ip.to_lower().is_valid_hex_number():
+		ok = Net.join_any([], Net.PORT, _on_pw.text, ip.to_lower())
+	else:
+		ok = Net.join_any([ip], Net.PORT, _on_pw.text)
+	_on_status.text = L.t("Connecting…") if ok else L.t("Could not connect")
 
 
 func _on_back() -> void:

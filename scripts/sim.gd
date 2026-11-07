@@ -211,6 +211,9 @@ func step() -> void:
 				continue
 			if x > PL + BR + 1 and x < PR - BR - 1 and y > PT + BR + 1 and y < PB - BR - 1:
 				continue
+			if _over_pocket(x, y):
+				_pot(i)
+				continue
 			_cushions(i)
 		for i in n:
 			if alive[i] == 0:
@@ -254,6 +257,16 @@ func step() -> void:
 			vx[i] = 0.0; vy[i] = 0.0
 		else:
 			vx[i] *= ns / sp; vy[i] *= ns / sp
+
+
+## Liegt die Kugelmitte über dem Loch, fällt sie hinein (nichts bleibt auf den Backen liegen)
+func _over_pocket(x: float, y: float) -> bool:
+	for k in POCKETS.size():
+		var p: Vector2 = POCKETS[k]
+		var r := 16.0 if k == 2 or k == 3 else 20.0
+		if (x - p.x) * (x - p.x) + (y - p.y) * (y - p.y) < r * r:
+			return true
+	return false
 
 
 func _cushions(i: int) -> void:

@@ -1,5 +1,6 @@
 extends Node
-## Online play: one phone hosts (ENet), the other joins by address. No server involved.
+## Online play: one phone hosts. Joining goes through the local network, a direct address
+## or, if that does not work, a relay on the lobby server.
 
 signal got(d: Dictionary)
 signal connected
@@ -12,6 +13,7 @@ signal denied
 
 const PORT := 24680
 const LOBBY_URL := "https://paperstream.dev/cueduel/api/v1"
+const RELAY_URL := "wss://paperstream.dev/cueduel/relay"
 
 var host := false
 var active := false
@@ -32,13 +34,26 @@ var _players := 1
 var _public := false
 var _cands := []
 var _cand_port := PORT
+var _code := ""
+var _relay_tried := false
+var _ws: WebSocketPeer
+var _ws_role := ""
+var _ws_hello := false
+var _via_relay := false
+var _lobby_hello := {}
+var lobby_url := LOBBY_URL
+var relay_url := RELAY_URL
 
 
 func _ready() -> void:
+	if OS.get_environment("CUEDUEL_LOBBY") != "":
+		lobby_url = OS.get_environment("CUEDUEL_LOBBY")
+		relay_url = OS.get_environment("CUEDUEL_RELAY")
 	multiplayer.peer_disconnected.connect(func(_id): if host and active: lost.emit())
 	multiplayer.connected_to_server.connect(func():
 		_timer.stop()
 		_authed = true
+		_via_relay = false
 		_rx.rpc({"t": "hello", "pw": _hash(join_password)})
 		connected.emit())
 	multiplayer.connection_failed.connect(_join_failed)
@@ -82,11 +97,13 @@ func join_game(ip: String, port := PORT, pw := "") -> bool:
 
 
 ## Probiert die Adressen nacheinander durch (erst lokale, dann die öffentliche)
-func join_any(ips: Array, port := PORT, pw := "") -> bool:
+func join_any(ips: Array, port := PORT, pw := "", code := "") -> bool:
 	stop()
 	join_password = pw
 	_cands = ips.duplicate()
 	_cand_port = port
+	_code = code
+	_relay_tried = false
 	return _try_next()
 
 
@@ -100,7 +117,14 @@ func _try_next() -> bool:
 		multiplayer.multiplayer_peer = _peer
 		host = false
 		active = true
-		_timer.start(3.0 if not _cands.is_empty() else 8.0)
+		_timer.start(3.0 if (not _cands.is_empty() or _code != "") else 8.0)
+		return true
+	if _code != "" and not _relay_tried:
+		_relay_tried = true
+		active = true
+		host = false
+		_ws_connect("guest", _code, "")
+		_timer.start(10.0)
 		return true
 	return false
 
@@ -115,6 +139,10 @@ func stop() -> void:
 	_timer.stop()
 	_unregister()
 	_authed = false
+	_via_relay = false
+	if _ws != null:
+		_ws.close()
+		_ws = null
 	if _upnp != null:
 		_upnp.delete_port_mapping(PORT, "UDP")
 		_upnp = null
@@ -127,20 +155,31 @@ func stop() -> void:
 
 
 func send(d: Dictionary) -> void:
-	if active and _peer != null and not multiplayer.get_peers().is_empty():
+	if not active:
+		return
+	if _via_relay:
+		_ws_send(d)
+	elif _peer != null and not multiplayer.get_peers().is_empty():
 		_rx.rpc(d)
 
 
 @rpc("any_peer", "reliable")
 func _rx(d: Dictionary) -> void:
+	_deliver(d, false)
+
+
+func _deliver(d: Dictionary, relayed: bool) -> void:
 	match d.get("t", ""):
 		"hello":
 			if not host or _authed:
 				return
 			if str(d.get("pw", "")) == _hash(password):
 				_authed = true
+				_via_relay = relayed
 				_set_players(2)
 				connected.emit()
+			elif relayed:
+				_ws_send({"t": "deny"})
 			else:
 				var id := multiplayer.get_remote_sender_id()
 				_rx.rpc_id(id, {"t": "deny"})
@@ -154,6 +193,85 @@ func _rx(d: Dictionary) -> void:
 		_:
 			if _authed:
 				got.emit(d)
+
+
+# ---------- relay ----------
+
+func _ws_connect(role: String, id: String, token: String) -> void:
+	if _ws != null:
+		_ws.close()
+	_ws = WebSocketPeer.new()
+	_ws.heartbeat_interval = 20.0
+	_ws_role = role
+	_ws_hello = false
+	_lobby_hello = {"t": role, "id": id, "token": token}
+	if _ws.connect_to_url(relay_url) != OK:
+		_ws = null
+
+
+func _ws_send(d: Dictionary) -> void:
+	if _ws != null and _ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
+		_ws.send_text(JSON.stringify({"t": "data", "d": Marshalls.variant_to_base64(d)}))
+
+
+func _process(_delta: float) -> void:
+	if _ws == null:
+		return
+	_ws.poll()
+	match _ws.get_ready_state():
+		WebSocketPeer.STATE_OPEN:
+			if not _ws_hello:
+				_ws_hello = true
+				_ws.send_text(JSON.stringify(_lobby_hello))
+			while _ws != null and _ws.get_available_packet_count() > 0:
+				_ws_msg(_ws.get_packet().get_string_from_utf8())
+		WebSocketPeer.STATE_CLOSED:
+			_ws_closed()
+
+
+func _ws_msg(text: String) -> void:
+	var m = JSON.parse_string(text)
+	if not m is Dictionary:
+		return
+	match m.get("t", ""):
+		"ok":
+			if _ws_role == "guest" and not _authed:
+				_timer.stop()
+				_authed = true
+				_via_relay = true
+				_ws_send({"t": "hello", "pw": _hash(join_password)})
+				connected.emit()
+		"error":
+			if _ws_role == "guest":
+				_join_failed()
+		"bye":
+			if _authed and _via_relay:
+				stop()
+				lost.emit()
+		"data":
+			var d = Marshalls.base64_to_variant(str(m.get("d", "")))
+			if d is Dictionary:
+				_deliver(d, true)
+
+
+func _ws_closed() -> void:
+	_ws = null
+	if not active:
+		return
+	if _ws_role == "guest":
+		if _authed and _via_relay:
+			stop()
+			lost.emit()
+		elif not _authed:
+			_join_failed()
+	elif host:
+		if _authed and _via_relay:
+			stop()
+			lost.emit()
+		elif _lobby_id != "":
+			get_tree().create_timer(2.0).timeout.connect(func():
+				if active and host and _ws == null and not _authed and _lobby_id != "":
+					_ws_connect("host", _lobby_id, _lobby_token))
 
 
 func _hash(pw: String) -> String:
@@ -181,13 +299,13 @@ func _req(method: int, path: String, body: Dictionary, cb: Callable) -> void:
 			data = JSON.parse_string(b.get_string_from_utf8())
 		cb.call(data))
 	var json := JSON.stringify(body) if method != HTTPClient.METHOD_GET else ""
-	if r.request(LOBBY_URL + path, ["Content-Type: application/json"], method, json) != OK:
+	if r.request(lobby_url + path, ["Content-Type: application/json"], method, json) != OK:
 		r.queue_free()
 		cb.call(null)
 
 
 func _register() -> void:
-	var body := {"name": lobby_name, "port": PORT, "locked": password != "", "open": _ext != "",
+	var body := {"name": lobby_name, "port": PORT, "locked": password != "", "open": _ext != "", "listed": _public,
 		"lans": local_ips(),
 		"version": str(ProjectSettings.get_setting("application/config/version", ""))}
 	_req(HTTPClient.METHOD_POST, "/lobbies", body, func(data):
@@ -195,6 +313,8 @@ func _register() -> void:
 			_lobby_id = str(data.id)
 			_lobby_token = str(data.token)
 			_hb.start()
+			_ws_connect("host", _lobby_id, _lobby_token)
+			status.emit(host_text())
 		elif active and host:
 			status.emit(host_text() + "\n" + L.t("The list could not be reached")))
 
@@ -249,6 +369,8 @@ func host_text() -> String:
 		s += "\n" + L.t("Internet: forward UDP port {0} on your router", [PORT])
 	else:
 		s += "\n" + L.t("Looking for an internet address…")
+	if _lobby_id != "":
+		s += "\n" + L.t("Room code: {0}", [_lobby_id])
 	return s
 
 
@@ -268,9 +390,6 @@ func _try_upnp() -> void:
 
 func _upnp_finished() -> void:
 	if active and host:
-		if _public and _lobby_id == "":
+		if _lobby_id == "":
 			_register()
-		var t := host_text()
-		if _public and _ext == "":
-			t += "\n" + L.t("Only players in your network see your game in the list")
-		status.emit(t)
+		status.emit(host_text())

@@ -17,6 +17,7 @@ After=network.target
 
 [Service]
 Environment=PORT=5091
+Environment=WS_PORT=5092
 Environment=TRUST_PROXY=1
 ExecStart=/usr/bin/python3 /opt/cueduel-lobby/server.py
 User=nobody
@@ -43,8 +44,18 @@ blk = """    location /cueduel/api/ {
         proxy_set_header X-Forwarded-For $remote_addr;
     }
 """
+relay = """    location = /cueduel/relay {
+        proxy_pass http://127.0.0.1:5092;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 3600s;
+    }
+"""
 if "/cueduel/api/" not in s:
     s = s.replace("    location / { try_files", blk + "    location / { try_files", 1)
+if "/cueduel/relay" not in s:
+    s = s.replace("    location / { try_files", relay + "    location / { try_files", 1)
 open(f, "w").write(s)
 P
 if nginx -t; then

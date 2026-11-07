@@ -3,7 +3,7 @@ extends Node
 
 const PATH := "user://save.json"
 const MAX_REPLAYS := 12
-const REPLAY_VERSION := 1
+const REPLAY_VERSION := 2
 
 var cfg := {"level": 2, "haptic": true, "mute": false, "lang": "", "quality": -1}
 var stats := {}

@@ -28,7 +28,6 @@ var _csg := {}
 
 signal ready_done
 
-const JAW_EXT := 14.0
 const BAKED := "res://assets/table/%s.res"
 
 
@@ -297,9 +296,11 @@ func _build_csg(felt: Material, wood: Material, cushion: Material, tw: float, td
 		var sg: Array = Sim.SEGS[si]
 		var a2: Vector2 = sg[0]
 		var b2: Vector2 = sg[1]
-		# Die Backen laufen bis in die Tasche, das Loch schneidet sie rund
-		if si >= 6:
-			b2 += (b2 - a2).normalized() * JAW_EXT
+		var jaw := si >= 6
+		if jaw:
+			var dir := (b2 - a2).normalized()
+			a2 -= dir * 4.0
+			b2 -= dir * 6.0
 		var d := b2 - a2
 		var out := Vector2(-d.y, d.x).normalized()
 		var mid := (a2 + b2) / 2
@@ -307,9 +308,18 @@ func _build_csg(felt: Material, wood: Material, cushion: Material, tw: float, td
 			out = -out
 		# etwas länger und dicker, damit an den Knicken und zum Rahmen keine Lücke bleibt
 		var c := mid + out * 6.0
-		var cb := _csg_box(Vector3(d.length() * S + 0.12, 0.15, 0.12), w(c.x, c.y, 0.075))
+		var cb := _csg_box(Vector3(d.length() * S + (0.0 if jaw else 0.12), 0.15, 0.12), w(c.x, c.y, 0.075))
 		cb.rotation.y = -d.angle()
 		cush.add_child(cb)
+		if jaw:
+			# abgerundetes Ende der Backe, passend zur Kollision
+			var cap := CSGCylinder3D.new()
+			cap.radius = 0.06
+			cap.height = 0.15
+			cap.sides = 20
+			var cp := b2 + out * 6.0
+			cap.position = w(cp.x, cp.y, 0.075)
+			cush.add_child(cap)
 	_csg = {"bed": bed, "frame": frame, "cush": cush}
 	for node in [frame, bed, cush]:
 		var cutters: Array = node.get_meta("cutters")

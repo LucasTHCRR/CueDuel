@@ -73,6 +73,9 @@ func _dev_args() -> void:
 			start_game(a.ends_with("duo"))
 		elif a.begins_with("--net-host"):
 			Net.host_game("test", a.get_slice("=", 1) if "=" in a else "", "pub" in a)
+		elif a.begins_with("--net-code="):
+			var cp := a.get_slice("=", 1).split(",")
+			Net.join_any([], Net.PORT, cp[1] if cp.size() > 1 else "", cp[0])
 		elif a.begins_with("--net-join="):
 			var jp := a.get_slice("=", 1).split(",")
 			Net.join_any(Array(jp[0].split(";")), Net.PORT, jp[1] if jp.size() > 1 else "")
