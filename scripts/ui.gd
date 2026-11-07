@@ -773,10 +773,11 @@ func _pick_lobby(l: Dictionary) -> void:
 
 func _join_pick(pw: String) -> void:
 	var port := int(_pick.get("port", Net.PORT))
-	var ip := str(_pick.get("ip", ""))
-	if bool(_pick.get("same_net", false)) and str(_pick.get("lan", "")) != "":
-		ip = str(_pick.lan)
-	if Net.join_game(ip, port, pw):
+	var ips := []
+	if bool(_pick.get("same_net", false)) and _pick.get("lans") is Array:
+		ips = _pick.lans.duplicate()
+	ips.append(str(_pick.get("ip", "")))
+	if Net.join_any(ips, port, pw):
 		_lob_status.text = L.t("Connecting…")
 	else:
 		_lob_status.text = L.t("Could not connect")

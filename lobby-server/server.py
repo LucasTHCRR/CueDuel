@@ -70,7 +70,7 @@ class H(BaseHTTPRequestHandler):
                 # Spiele ohne offenen Port sieht nur, wer im selben Netz sitzt
                 if not v["open"] and not same:
                     continue
-                out.append({"id": k, "name": v["name"], "ip": v["ip"], "lan": v["lan"], "same_net": same,
+                out.append({"id": k, "name": v["name"], "ip": v["ip"], "lans": v["lans"], "same_net": same,
                             "port": v["port"], "locked": v["locked"], "players": v["players"],
                             "version": v["version"]})
         self.send(200, out)
@@ -86,9 +86,11 @@ class H(BaseHTTPRequestHandler):
                 port = 0
             if not 1024 <= port <= 65535:
                 return self.send(400, {})
-            lan = str(d.get("lan", ""))
-            if not re.fullmatch(r"(192\.168|10\.\d{1,3}|172\.(1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}", lan):
-                lan = ""
+            raw = d.get("lans", [])
+            if not isinstance(raw, list):
+                raw = []
+            lans = [x for x in raw[:6] if isinstance(x, str) and re.fullmatch(
+                r"(192\.168|10\.\d{1,3}|172\.(1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}", x)]
             with lock:
                 purge()
                 if len(lobbies) >= MAX_LOBBIES or sum(1 for v in lobbies.values() if v["ip"] == ip) >= MAX_PER_IP:
@@ -97,7 +99,7 @@ class H(BaseHTTPRequestHandler):
                 tok = secrets.token_hex(16)
                 lobbies[lid] = {"name": clean_name(d.get("name", "")), "ip": ip, "port": port,
                                 "locked": bool(d.get("locked", False)), "players": 1,
-                                "open": bool(d.get("open", False)), "lan": lan,
+                                "open": bool(d.get("open", False)), "lans": lans,
                                 "version": str(d.get("version", ""))[:16], "token": tok,
                                 "created": time.time(), "seen": time.time()}
             return self.send(200, {"id": lid, "token": tok})

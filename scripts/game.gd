@@ -72,10 +72,10 @@ func _dev_args() -> void:
 			ui.close_all()
 			start_game(a.ends_with("duo"))
 		elif a.begins_with("--net-host"):
-			Net.host_game("test", a.get_slice("=", 1) if "=" in a else "", false)
+			Net.host_game("test", a.get_slice("=", 1) if "=" in a else "", "pub" in a)
 		elif a.begins_with("--net-join="):
 			var jp := a.get_slice("=", 1).split(",")
-			Net.join_game(jp[0], Net.PORT, jp[1] if jp.size() > 1 else "")
+			Net.join_any(Array(jp[0].split(";")), Net.PORT, jp[1] if jp.size() > 1 else "")
 		elif a == "--net-shoot":
 			var nt := Timer.new()
 			nt.wait_time = 1.0

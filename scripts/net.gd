@@ -30,6 +30,8 @@ var _lobby_token := ""
 var _authed := false
 var _players := 1
 var _public := false
+var _cands := []
+var _cand_port := PORT
 
 
 func _ready() -> void:
@@ -39,18 +41,14 @@ func _ready() -> void:
 		_authed = true
 		_rx.rpc({"t": "hello", "pw": _hash(join_password)})
 		connected.emit())
-	multiplayer.connection_failed.connect(func():
-		stop()
-		failed.emit())
+	multiplayer.connection_failed.connect(_join_failed)
 	multiplayer.server_disconnected.connect(func():
 		stop()
 		lost.emit())
 	_timer = Timer.new()
 	_timer.one_shot = true
 	_timer.wait_time = 8.0
-	_timer.timeout.connect(func():
-		stop()
-		failed.emit())
+	_timer.timeout.connect(_join_failed)
 	add_child(_timer)
 	_hb = Timer.new()
 	_hb.wait_time = 15.0
@@ -80,17 +78,37 @@ func host_game(name := "", pw := "", public := false) -> bool:
 
 
 func join_game(ip: String, port := PORT, pw := "") -> bool:
+	return join_any([ip], port, pw)
+
+
+## Probiert die Adressen nacheinander durch (erst lokale, dann die öffentliche)
+func join_any(ips: Array, port := PORT, pw := "") -> bool:
 	stop()
 	join_password = pw
-	_peer = ENetMultiplayerPeer.new()
-	if _peer.create_client(ip, port) != OK:
-		_peer = null
-		return false
-	multiplayer.multiplayer_peer = _peer
-	host = false
-	active = true
-	_timer.start()
-	return true
+	_cands = ips.duplicate()
+	_cand_port = port
+	return _try_next()
+
+
+func _try_next() -> bool:
+	while not _cands.is_empty():
+		var ip: String = _cands.pop_front()
+		_peer = ENetMultiplayerPeer.new()
+		if _peer.create_client(ip, _cand_port) != OK:
+			_peer = null
+			continue
+		multiplayer.multiplayer_peer = _peer
+		host = false
+		active = true
+		_timer.start(3.0 if not _cands.is_empty() else 8.0)
+		return true
+	return false
+
+
+func _join_failed() -> void:
+	stop()
+	if not _try_next():
+		failed.emit()
 
 
 func stop() -> void:
@@ -169,9 +187,8 @@ func _req(method: int, path: String, body: Dictionary, cb: Callable) -> void:
 
 
 func _register() -> void:
-	var ips := local_ips()
 	var body := {"name": lobby_name, "port": PORT, "locked": password != "", "open": _ext != "",
-		"lan": ips[0] if not ips.is_empty() else "",
+		"lans": local_ips(),
 		"version": str(ProjectSettings.get_setting("application/config/version", ""))}
 	_req(HTTPClient.METHOD_POST, "/lobbies", body, func(data):
 		if data is Dictionary and data.has("id") and active and host:
@@ -210,7 +227,16 @@ func local_ips() -> Array:
 		var b := int(p[1])
 		if a.begins_with("192.168.") or a.begins_with("10.") or (p[0] == "172" and b >= 16 and b <= 31):
 			out.append(a)
+	out.sort_custom(func(x, y): return _rank(x) < _rank(y))
 	return out
+
+
+func _rank(a: String) -> int:
+	if a.begins_with("192.168."):
+		return 0
+	if a.begins_with("10."):
+		return 1
+	return 2
 
 
 func host_text() -> String:
