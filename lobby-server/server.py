@@ -92,6 +92,8 @@ class H(BaseHTTPRequestHandler):
             raw = d.get("lans", [])
             if not isinstance(raw, list):
                 raw = []
+            if not raw and isinstance(d.get("lan"), str):
+                raw = [d["lan"]]  # ältere App-Versionen
             lans = [x for x in raw[:6] if isinstance(x, str) and re.fullmatch(
                 r"(192\.168|10\.\d{1,3}|172\.(1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}", x)]
             with lock:

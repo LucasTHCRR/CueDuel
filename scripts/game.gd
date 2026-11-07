@@ -73,6 +73,16 @@ func _dev_args() -> void:
 			start_game(a.ends_with("duo"))
 		elif a.begins_with("--net-host"):
 			Net.host_game("test", a.get_slice("=", 1) if "=" in a else "", "pub" in a)
+		elif a == "--ui-host":
+			ui.open("host")
+			ui._host_name.text = "uitest"
+			ui._on_create()
+		elif a == "--ui-join":
+			ui.open("lobbies")
+			Net.lobbies_loaded.connect(func(list):
+				print("ui-join list: ", list.size())
+				if not list.is_empty():
+					ui._pick_lobby(list[0]))
 		elif a.begins_with("--net-code="):
 			var cp := a.get_slice("=", 1).split(",")
 			Net.join_any([], Net.PORT, cp[1] if cp.size() > 1 else "", cp[0])

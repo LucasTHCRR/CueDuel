@@ -739,7 +739,8 @@ func _on_lobbies(list: Array) -> void:
 		shown += 1
 		var row := _row(_lob_list, 8)
 		var locked: bool = bool(l.get("locked", false))
-		var nm := _label(str(l.get("name", "")).left(24), 24, Color.WHITE, false)
+		var ver := str(l.get("version", "")).replace("-BETA", "")
+		var nm := _label(str(l.get("name", "")).left(24) + ("  " + ver if ver != "" else ""), 24, Color.WHITE, false)
 		nm.autowrap_mode = TextServer.AUTOWRAP_OFF
 		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -778,7 +779,7 @@ func _join_pick(pw: String) -> void:
 	var ips := []
 	if bool(_pick.get("same_net", false)) and _pick.get("lans") is Array:
 		ips = _pick.lans.duplicate()
-	if bool(_pick.get("open", false)):
+	if bool(_pick.get("open", false)) or ips.is_empty():
 		ips.append(str(_pick.get("ip", "")))
 	if Net.join_any(ips, port, pw, str(_pick.get("id", ""))):
 		_lob_status.text = L.t("Connecting…")
