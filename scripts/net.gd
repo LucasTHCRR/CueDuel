@@ -36,6 +36,7 @@ var _cands := []
 var _cand_port := PORT
 var _code := ""
 var _relay_tried := false
+var fail_reason := ""
 var _ws: WebSocketPeer
 var _ws_role := ""
 var _ws_hello := false
@@ -100,6 +101,7 @@ func join_game(ip: String, port := PORT, pw := "") -> bool:
 func join_any(ips: Array, port := PORT, pw := "", code := "") -> bool:
 	stop()
 	join_password = pw
+	fail_reason = ""
 	_cands = ips.duplicate()
 	_cand_port = port
 	_code = code
@@ -243,6 +245,7 @@ func _ws_msg(text: String) -> void:
 				connected.emit()
 		"error":
 			if _ws_role == "guest":
+				fail_reason = str(m.get("why", ""))
 				_join_failed()
 		"bye":
 			if _authed and _via_relay:

@@ -838,7 +838,10 @@ func _on_net_connected() -> void:
 
 
 func _on_net_failed() -> void:
-	_set_net_status(L.t("Could not connect"))
+	var t := L.t("Could not connect")
+	if Net.fail_reason != "":
+		t += "\n" + L.t(Net.fail_reason)
+	_set_net_status(t)
 
 
 func _on_net_denied() -> void:

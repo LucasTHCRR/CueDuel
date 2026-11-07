@@ -204,6 +204,7 @@ async def relay_client(reader, writer):
         msg = json.loads(data)
         role = str(msg.get("t", ""))
         rid = str(msg.get("id", ""))
+        print("relay connect", role, rid, flush=True)
         with lock:
             v = lobbies.get(rid)
             token_ok = v is not None and secrets.compare_digest(v["token"], str(msg.get("token", "")))
@@ -223,7 +224,16 @@ async def relay_client(reader, writer):
             await room["host"].send({"t": "peer"})
             await c.send({"t": "ok"})
         else:
-            await c.send({"t": "error"})
+            print("relay refused", role, rid, "token_ok" if token_ok else "no token/lobby", "host_present" if rid in rooms and rooms[rid].get("host") else "no host", flush=True)
+            if v is None:
+                why = "This game no longer exists"
+            elif role == "guest" and not (rid in rooms and rooms[rid].get("host")):
+                why = "The host is not reachable"
+            elif role == "guest":
+                why = "The game is full"
+            else:
+                why = "Could not connect"
+            await c.send({"t": "error", "why": why})
             return
         other_key = "guest" if role == "host" else "host"
         while True:
@@ -240,8 +250,10 @@ async def relay_client(reader, writer):
                     if rid in lobbies:
                         lobbies[rid]["seen"] = time.time()
     except Exception:
-        pass
+        import traceback
+        traceback.print_exc()
     finally:
+        print("relay closed", role, rid, flush=True)
         if room is not None and room.get(role) is c:
             del room[role]
             o = room.get("guest" if role == "host" else "host")
