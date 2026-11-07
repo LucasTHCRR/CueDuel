@@ -71,6 +71,25 @@ func _dev_args() -> void:
 		elif a.begins_with("--play"):
 			ui.close_all()
 			start_game(a.ends_with("duo"))
+		elif a.begins_with("--net-host"):
+			Net.host_game("test", a.get_slice("=", 1) if "=" in a else "", false)
+		elif a.begins_with("--net-join="):
+			var jp := a.get_slice("=", 1).split(",")
+			Net.join_game(jp[0], Net.PORT, jp[1] if jp.size() > 1 else "")
+		elif a == "--net-shoot":
+			var nt := Timer.new()
+			nt.wait_time = 1.0
+			nt.autostart = true
+			add_child(nt)
+			nt.timeout.connect(func():
+				print("net online=%s state=%s turn=%s me=%s hash=%d" % [online, St.keys()[state], turn, my_side, hash(sim.px)])
+				if online and turn == my_side:
+					if state == St.AIM:
+						shoot_pressed()
+					elif state == St.PLACE:
+						confirm_place())
+		elif a == "--bake-table":
+			view.bake.call_deferred()
 		elif a == "--balls-open":
 			ui.close_all()
 			start_game(false)

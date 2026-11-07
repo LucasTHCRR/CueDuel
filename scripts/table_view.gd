@@ -20,6 +20,13 @@ var _fall := {}
 var _look := Vector3.ZERO
 var fixed_cam = null
 var lamp: Node3D
+var sun: DirectionalLight3D
+var spot: SpotLight3D
+var env: Environment
+var _sphere: SphereMesh
+var _csg := {}
+
+const BAKED := "res://assets/table/%s.res"
 
 
 static func w(x: float, y: float, h := 0.0) -> Vector3:
@@ -42,14 +49,14 @@ func _ready() -> void:
 	var sphere := SphereMesh.new()
 	sphere.radius = Sim.BR * S
 	sphere.height = Sim.BR * S * 2
-	sphere.radial_segments = 32
-	sphere.rings = 16
+	_sphere = sphere
 	for i in 16:
 		var m := MeshInstance3D.new()
 		m.mesh = sphere
 		add_child(m)
 		balls.append(m)
 		_last.append(Vector2.ZERO)
+	apply_quality()
 	await _make_ball_materials()
 
 
@@ -115,7 +122,7 @@ func _csg_cut(mat: Material, radius: float) -> CSGCombiner3D:
 
 
 func _environment() -> void:
-	var env := Environment.new()
+	env = Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color("2a2118")
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -129,7 +136,7 @@ func _environment() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
-	var sun := DirectionalLight3D.new()
+	sun = DirectionalLight3D.new()
 	sun.light_energy = 0.55
 	sun.light_color = Color("fff4e6")
 	sun.shadow_enabled = true
@@ -137,7 +144,7 @@ func _environment() -> void:
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	sun.rotation_degrees = Vector3(-62, 28, 0)
 	add_child(sun)
-	var spot := SpotLight3D.new()
+	spot = SpotLight3D.new()
 	spot.position = Vector3(0, 3.2, 0)
 	spot.rotation_degrees = Vector3(-90, 0, 0)
 	spot.spot_range = 8.0
@@ -151,7 +158,7 @@ func _environment() -> void:
 
 func _room() -> void:
 	var floor_mat := StandardMaterial3D.new()
-	floor_mat.albedo_texture = _noise_tex(PackedColorArray([Color("3a2414"), Color("5b3920"), Color("6e4527")]), 0.02, 512, 512)
+	floor_mat.albedo_texture = _noise_tex(PackedColorArray([Color("3a2414"), Color("5b3920"), Color("6e4527")]), 0.08, 128, 128)
 	floor_mat.uv1_scale = Vector3(6, 30, 1)
 	floor_mat.roughness = 0.55
 	_box(Vector3(30, 0.1, 30), Vector3(0, -3.25, 0), floor_mat, self, false)
@@ -187,7 +194,7 @@ func _room() -> void:
 
 func _table() -> void:
 	var wood := StandardMaterial3D.new()
-	wood.albedo_texture = _noise_tex(PackedColorArray([Color("3d1d0b"), Color("6e3b1b"), Color("8a4c25"), Color("5a2d12")]), 0.03, 512, 128)
+	wood.albedo_texture = _noise_tex(PackedColorArray([Color("3d1d0b"), Color("6e3b1b"), Color("8a4c25"), Color("5a2d12")]), 0.06, 256, 64)
 	wood.uv1_scale = Vector3(1, 8, 1)
 	wood.roughness = 0.32
 	wood.clearcoat_enabled = true
@@ -204,33 +211,14 @@ func _table() -> void:
 	var pr := 0.25
 	# Felt bed, rails and cushions are CSG shapes with the pockets cut out, so the
 	# pockets are real holes instead of objects standing on the table.
-	var bed := _csg_cut(felt, pr)
-	bed.add_child(_csg_box(Vector3(tw + 0.5, 0.06, td + 0.5), Vector3(0, -0.03, 0)))
-	var frame := _csg_cut(wood, pr)
-	var outer := _csg_box(Vector3(tw + 0.2 + 2 * rw, rh, td + 0.2 + 2 * rw), Vector3(0, rh / 2, 0))
-	frame.add_child(outer)
-	var inner := _csg_box(Vector3(tw + 0.2, rh + 0.2, td + 0.2), Vector3(0, rh / 2, 0))
-	inner.operation = CSGShape3D.OPERATION_SUBTRACTION
-	frame.add_child(inner)
-	var cush := _csg_cut(cushion, pr)
-	for sg in Sim.SEGS:
-		var a2: Vector2 = sg[0]
-		var b2: Vector2 = sg[1]
-		var d := b2 - a2
-		var out := Vector2(-d.y, d.x).normalized()
-		var mid := (a2 + b2) / 2
-		if Vector2(Sim.CX, Sim.CY).distance_to(mid + out) < Vector2(Sim.CX, Sim.CY).distance_to(mid):
-			out = -out
-		# etwas länger und dicker, damit an den Knicken und zum Rahmen keine Lücke bleibt
-		var c := mid + out * 6.0
-		var cb := _csg_box(Vector3(d.length() * S + 0.12, 0.15, 0.12), w(c.x, c.y, 0.075))
-		cb.rotation.y = -d.angle()
-		cush.add_child(cb)
-	for node in [frame, bed, cush]:
-		var cutters: Array = node.get_meta("cutters")
-		for cyl in cutters:
-			node.move_child(cyl, -1)
-		add_child(node)
+	if ResourceLoader.exists(BAKED % "bed"):
+		for k in [["bed", felt], ["frame", wood], ["cush", cushion]]:
+			var mi := MeshInstance3D.new()
+			mi.mesh = load(BAKED % k[0])
+			mi.material_override = k[1]
+			add_child(mi)
+	else:
+		_build_csg(felt, wood, cushion, tw, td, rw, rh, pr)
 	_box(Vector3(tw + 1.2, 0.36, td + 1.2), Vector3(0, -0.3, 0), wood)
 	for sx in [-1, 1]:
 		for sz in [-1, 1]:
@@ -274,6 +262,38 @@ func _table() -> void:
 	head_line.visible = false
 	# chalk cube on the rail
 	_box(Vector3(0.14, 0.09, 0.14), w(Sim.PR + 30, Sim.PT + 170, rh + 0.045), _mat(Color("3b6fd4"), 0.9)).rotation.y = 0.6
+
+
+## Nur zum Erzeugen der fertigen Tischteile (--bake-table), im Spiel wird nicht mehr gerechnet
+func _build_csg(felt: Material, wood: Material, cushion: Material, tw: float, td: float, rw: float, rh: float, pr: float) -> void:
+	var bed := _csg_cut(felt, pr)
+	bed.add_child(_csg_box(Vector3(tw + 0.5, 0.06, td + 0.5), Vector3(0, -0.03, 0)))
+	var frame := _csg_cut(wood, pr)
+	var outer := _csg_box(Vector3(tw + 0.2 + 2 * rw, rh, td + 0.2 + 2 * rw), Vector3(0, rh / 2, 0))
+	frame.add_child(outer)
+	var inner := _csg_box(Vector3(tw + 0.2, rh + 0.2, td + 0.2), Vector3(0, rh / 2, 0))
+	inner.operation = CSGShape3D.OPERATION_SUBTRACTION
+	frame.add_child(inner)
+	var cush := _csg_cut(cushion, pr)
+	for sg in Sim.SEGS:
+		var a2: Vector2 = sg[0]
+		var b2: Vector2 = sg[1]
+		var d := b2 - a2
+		var out := Vector2(-d.y, d.x).normalized()
+		var mid := (a2 + b2) / 2
+		if Vector2(Sim.CX, Sim.CY).distance_to(mid + out) < Vector2(Sim.CX, Sim.CY).distance_to(mid):
+			out = -out
+		# etwas länger und dicker, damit an den Knicken und zum Rahmen keine Lücke bleibt
+		var c := mid + out * 6.0
+		var cb := _csg_box(Vector3(d.length() * S + 0.12, 0.15, 0.12), w(c.x, c.y, 0.075))
+		cb.rotation.y = -d.angle()
+		cush.add_child(cb)
+	_csg = {"bed": bed, "frame": frame, "cush": cush}
+	for node in [frame, bed, cush]:
+		var cutters: Array = node.get_meta("cutters")
+		for cyl in cutters:
+			node.move_child(cyl, -1)
+		add_child(node)
 
 
 func _stick() -> void:
@@ -567,3 +587,25 @@ func screen_to_table(pos: Vector2):
 	var t := (Sim.BR * S - o.y) / d.y
 	var hit := o + d * t
 	return Vector2(hit.x / S + Sim.CX, hit.z / S + Sim.CY)
+
+
+func bake() -> void:
+	for i in 4:
+		await get_tree().process_frame
+	DirAccess.make_dir_recursive_absolute("res://assets/table")
+	for k in _csg:
+		var m: Array = _csg[k].get_meshes()
+		print("bake ", k, " ", ResourceSaver.save(m[1], BAKED % k))
+	get_tree().quit()
+
+
+func apply_quality() -> void:
+	var hi := int(Store.cfg.quality) == 1
+	env.glow_enabled = hi
+	sun.shadow_enabled = hi
+	spot.shadow_enabled = hi
+	_sphere.radial_segments = 32 if hi else 20
+	_sphere.rings = 16 if hi else 10
+	var vp := get_viewport()
+	vp.msaa_3d = Viewport.MSAA_2X if hi else Viewport.MSAA_DISABLED
+	vp.scaling_3d_scale = 1.0 if hi else 0.75

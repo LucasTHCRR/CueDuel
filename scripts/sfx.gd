@@ -17,6 +17,11 @@ func _ready() -> void:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
 		players.append(p)
+	WorkerThreadPool.add_task(_build)
+
+
+func _build() -> void:
+	var streams := {}
 	streams.ball = _render(0.08, func(t, d): return _sweep(t, 2600.0, 1300.0, d, "tri") * 0.7 + _noise() * 0.25 * (1.0 - t / d))
 	streams.rail = _render(0.12, func(t, d): return _sweep(t, 190.0, 70.0, d, "sine"))
 	streams.pot = _render(0.4, func(t, d): return _sweep(t, 420.0, 70.0, d, "sine") * 0.8 + _noise() * 0.3 * (1.0 - t / d))
@@ -24,6 +29,11 @@ func _ready() -> void:
 	streams.win = _jingle([523.0, 659.0, 784.0, 1047.0])
 	streams.lose = _jingle([392.0, 330.0, 262.0, 196.0])
 	streams.click = _render(0.03, func(t, d): return _sweep(t, 900.0, 700.0, d, "sine") * 0.5)
+	_install.call_deferred(streams)
+
+
+func _install(s: Dictionary) -> void:
+	streams = s
 
 
 func _process(_d: float) -> void:

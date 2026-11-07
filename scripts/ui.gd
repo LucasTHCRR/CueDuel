@@ -287,6 +287,8 @@ func _refresh(name: String) -> void:
 		"menu": _fill_menu()
 		"settings": _fill_settings()
 		"online": _fill_online()
+		"host": _fill_host()
+		"lobbies": _load_lobbies()
 		"stats": _fill_stats()
 		"replays": _fill_replays()
 		"balls": _fill_balls()
@@ -575,6 +577,16 @@ func _pct(a, b) -> String:
 
 var _on_status: Label
 var _on_ip: LineEdit
+var _host_name: LineEdit
+var _host_pw: LineEdit
+var _host_pub := true
+var _host_pub_btn: Button
+var _host_status: Label
+var _lob_list: VBoxContainer
+var _lob_status: Label
+var _pw_in: LineEdit
+var _pw_title: Label
+var _pick := {}
 
 
 func _build_online() -> void:
@@ -582,8 +594,9 @@ func _build_online() -> void:
 	var h := _label("Online game", 34)
 	h.add_theme_font_override("font", font_black)
 	v.add_child(h)
-	v.add_child(_btn("Host a game", _on_host, C_GREEN))
-	v.add_child(_label("Join a game", 22, C_DIM))
+	v.add_child(_btn("Find games", func(): open("lobbies"), C_GREEN))
+	v.add_child(_btn("Host a game", func(): open("host")))
+	v.add_child(_label("Join with address", 22, C_DIM))
 	_on_ip = LineEdit.new()
 	_on_ip.placeholder_text = "192.168.0.10"
 	_on_ip.custom_minimum_size.y = 64
@@ -594,13 +607,147 @@ func _build_online() -> void:
 	_on_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_on_status)
 	v.add_child(_btn("Back", _on_back, C_GREEN))
+	_build_host()
+	_build_lobbies()
+	_build_pw()
 	Net.status.connect(_on_net_status)
 	Net.connected.connect(_on_net_connected)
 	Net.failed.connect(_on_net_failed)
+	Net.denied.connect(_on_net_denied)
+	Net.lobbies_loaded.connect(_on_lobbies)
+	Net.lobbies_failed.connect(_on_lobbies_failed)
 
 
-func _on_host() -> void:
-	_on_status.text = Net.host_text() if Net.host_game() else L.t("Could not connect")
+func _field(parent: Node, hint: String) -> LineEdit:
+	var e := LineEdit.new()
+	e.placeholder_text = L.t(hint)
+	e.custom_minimum_size.y = 64
+	e.add_theme_font_size_override("font_size", 28)
+	parent.add_child(e)
+	return e
+
+
+func _build_host() -> void:
+	var v := _overlay("host")
+	var h := _label("Host a game", 34)
+	h.add_theme_font_override("font", font_black)
+	v.add_child(h)
+	_host_name = _field(v, "Game name")
+	_host_name.max_length = 24
+	_host_pw = _field(v, "Password (optional)")
+	_host_pw.max_length = 24
+	_host_pub_btn = _btn("Show in the list", func():
+		_host_pub = not _host_pub
+		_fill_host())
+	v.add_child(_host_pub_btn)
+	v.add_child(_btn("Create game", _on_create, C_GREEN))
+	_host_status = _label("", 20, C_DIM, false)
+	_host_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(_host_status)
+	v.add_child(_btn("Back", _on_back, C_BTN))
+
+
+func _fill_host() -> void:
+	_mark(_host_pub_btn, _host_pub)
+	if not Net.active:
+		_host_status.text = ""
+
+
+func _on_create() -> void:
+	var nm := _host_name.text.strip_edges()
+	if nm == "":
+		nm = "Cue Duel"
+	if Net.host_game(nm, _host_pw.text, _host_pub):
+		_host_status.text = Net.host_text()
+	else:
+		_host_status.text = L.t("Could not connect")
+
+
+func _build_lobbies() -> void:
+	var v := _overlay("lobbies")
+	var h := _label("Find games", 34)
+	h.add_theme_font_override("font", font_black)
+	v.add_child(h)
+	var sc := ScrollContainer.new()
+	sc.custom_minimum_size = Vector2(0, 520)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(sc)
+	_lob_list = VBoxContainer.new()
+	_lob_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lob_list.add_theme_constant_override("separation", 8)
+	sc.add_child(_lob_list)
+	_lob_status = _label("", 20, C_DIM, false)
+	v.add_child(_lob_status)
+	var r := _row(v)
+	r.add_child(_grow(_btn("Refresh", _load_lobbies)))
+	r.add_child(_grow(_btn("Back", _on_back, C_GREEN)))
+
+
+func _load_lobbies() -> void:
+	for c in _lob_list.get_children():
+		c.queue_free()
+	_lob_status.text = L.t("Loading…")
+	Net.fetch_lobbies()
+
+
+func _on_lobbies(list: Array) -> void:
+	for c in _lob_list.get_children():
+		c.queue_free()
+	var shown := 0
+	for l in list:
+		if not l is Dictionary or int(l.get("players", 1)) >= 2:
+			continue
+		shown += 1
+		var row := _row(_lob_list, 8)
+		var locked: bool = bool(l.get("locked", false))
+		var nm := _label("%s" % str(l.get("name", "")).left(24), 24, Color.WHITE, false)
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nm.clip_text = true
+		row.add_child(nm)
+		row.add_child(_label("Password" if locked else "Open", 18, Color("f5b041") if locked else C_DIM))
+		var item: Dictionary = l
+		row.add_child(_btn("Join", func(): _pick_lobby(item)))
+	_lob_status.text = "" if shown > 0 else L.t("No games found")
+
+
+func _on_lobbies_failed() -> void:
+	for c in _lob_list.get_children():
+		c.queue_free()
+	_lob_status.text = L.t("The list could not be reached")
+
+
+func _pick_lobby(l: Dictionary) -> void:
+	_pick = l
+	if bool(l.get("locked", false)):
+		_pw_title.text = str(l.get("name", ""))
+		_pw_in.text = ""
+		open("password")
+	else:
+		_join_pick("")
+
+
+func _join_pick(pw: String) -> void:
+	var port := int(_pick.get("port", Net.PORT))
+	if Net.join_game(str(_pick.get("ip", "")), port, pw):
+		_lob_status.text = L.t("Connecting…")
+	else:
+		_lob_status.text = L.t("Could not connect")
+
+
+func _build_pw() -> void:
+	var v := _overlay("password")
+	var h := _label("Password", 34)
+	h.add_theme_font_override("font", font_black)
+	v.add_child(h)
+	_pw_title = _label("", 24, C_DIM, false)
+	v.add_child(_pw_title)
+	_pw_in = _field(v, "Password")
+	var r := _row(v)
+	r.add_child(_grow(_btn("Back", close_top)))
+	r.add_child(_grow(_btn("Join", func():
+		var pw := _pw_in.text
+		close_top()
+		_join_pick(pw), C_GREEN)))
 
 
 func _on_join() -> void:
@@ -615,19 +762,29 @@ func _on_back() -> void:
 	close_top()
 
 
-func _on_net_status(t: String) -> void:
+func _set_net_status(t: String) -> void:
 	_on_status.text = t
+	_host_status.text = t
+	_lob_status.text = t
+
+
+func _on_net_status(t: String) -> void:
+	_host_status.text = t
 
 
 func _on_net_connected() -> void:
 	if Net.host:
 		game.online_begin()
 	else:
-		_on_status.text = L.t("Connected, waiting for the host…")
+		_set_net_status(L.t("Connected, waiting for the host…"))
 
 
 func _on_net_failed() -> void:
-	_on_status.text = L.t("Could not connect")
+	_set_net_status(L.t("Could not connect"))
+
+
+func _on_net_denied() -> void:
+	_set_net_status(L.t("Wrong password"))
 
 
 func _fill_online() -> void:
@@ -642,6 +799,7 @@ var _lv_desc: Label
 var _lv_warn: Label
 var _vib_btns := []
 var _lang_btns := []
+var _gfx_btns := []
 const DESC := ["Aims poorly, often picks hard shots and slips up a lot.",
 	"Aims decently and picks good shots, but slips up now and then.",
 	"Very accurate and thinks about where the cue ball ends up.",
@@ -673,6 +831,14 @@ func _build_settings() -> void:
 				Input.vibrate_handheld(40))
 		r2.add_child(_grow(b2))
 		_vib_btns.append(b2)
+	v.add_child(_label("Graphics", 22, C_DIM))
+	var rg := _row(v, 8)
+	for i in 2:
+		var bg := _btn(["Low", "High"][i], func():
+			_tmp.quality = i
+			_fill_settings())
+		rg.add_child(_grow(bg))
+		_gfx_btns.append(bg)
 	v.add_child(_label("Language", 22, C_DIM))
 	var r3 := _row(v, 8)
 	for l in L.LANGS:
@@ -690,7 +856,9 @@ func _build_settings() -> void:
 
 func _fill_settings() -> void:
 	if not _tmp.has("level"):
-		_tmp = {"level": int(Store.cfg.level), "haptic": bool(Store.cfg.haptic)}
+		_tmp = {"level": int(Store.cfg.level), "haptic": bool(Store.cfg.haptic), "quality": int(Store.cfg.quality)}
+	for i in 2:
+		_mark(_gfx_btns[i], _tmp.quality == i)
 	for i in 4:
 		_mark(_lv_btns[i], _tmp.level == i + 1)
 	for i in 2:
@@ -709,6 +877,8 @@ func _mark(b: Button, on: bool) -> void:
 
 func _apply_settings() -> void:
 	Store.cfg.haptic = _tmp.haptic
+	Store.cfg.quality = _tmp.quality
+	game.view.apply_quality()
 	var lv: int = _tmp.level
 	_tmp = {}
 	close_top()

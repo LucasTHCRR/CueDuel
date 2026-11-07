@@ -5,7 +5,7 @@ const PATH := "user://save.json"
 const MAX_REPLAYS := 12
 const REPLAY_VERSION := 1
 
-var cfg := {"level": 2, "haptic": true, "mute": false, "lang": ""}
+var cfg := {"level": 2, "haptic": true, "mute": false, "lang": "", "quality": -1}
 var stats := {}
 var replays := []
 
@@ -23,6 +23,8 @@ func _ready() -> void:
 			if d.get("replays") is Array:
 				replays = d.replays.filter(func(r): return r is Dictionary and int(r.get("v", 0)) == REPLAY_VERSION)
 	cfg.level = clampi(int(cfg.level), 1, 4)
+	if int(cfg.quality) < 0:
+		cfg.quality = 0 if OS.has_feature("mobile") else 1
 	# JSON has no integers; turn counters back into ints.
 	for k in stats:
 		if stats[k] is float:
