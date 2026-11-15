@@ -12,53 +12,57 @@ $SSH 'bash -s' <<'REMOTE'
 set -e
 cat > /etc/systemd/system/paperstream-cueduel-lobby.service <<'U'
 [Unit]
-Description=Cue Duel lobby list
-After=network.target
+Description=Cue Duel lobby list and relay
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
 
 [Service]
 Environment=PORT=5091
 Environment=WS_PORT=5092
 Environment=TRUST_PROXY=1
+Environment=PYTHONUNBUFFERED=1
 ExecStart=/usr/bin/python3 /opt/cueduel-lobby/server.py
-User=nobody
-Restart=on-failure
+DynamicUser=yes
+Restart=always
+RestartSec=3
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+MemoryMax=200M
+LimitNOFILE=4096
 
 [Install]
 WantedBy=multi-user.target
 U
 systemctl daemon-reload
-systemctl enable --now paperstream-cueduel-lobby
+systemctl enable paperstream-cueduel-lobby
 systemctl restart paperstream-cueduel-lobby
 
+# eigene Datei, damit die Route einen Tausch der Seiten-Conf übersteht
+cat > /etc/nginx/snippets/paperstream-cueduel.conf <<'N'
+location /cueduel/api/ {
+    client_max_body_size 4k;
+    proxy_pass http://127.0.0.1:5091/;
+    proxy_set_header X-Forwarded-For $remote_addr;
+}
+location = /cueduel/relay {
+    proxy_pass http://127.0.0.1:5092;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_read_timeout 3600s;
+}
+N
 F=/etc/nginx/sites-enabled/paperstream.dev.conf
 cp -a "$F" /root/paperstream.dev.conf.bak-cueduel
-python3 - <<'P'
-f = "/etc/nginx/sites-enabled/paperstream.dev.conf"
-s = open(f).read()
-blk = """    location /cueduel/api/ {
-        client_max_body_size 4k;
-        proxy_pass http://127.0.0.1:5091/;
-        proxy_set_header X-Forwarded-For $remote_addr;
-    }
-"""
-relay = """    location = /cueduel/relay {
-        proxy_pass http://127.0.0.1:5092;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_read_timeout 3600s;
-    }
-"""
-if "/cueduel/api/" not in s:
-    s = s.replace("    location / { try_files", blk + "    location / { try_files", 1)
-if "/cueduel/relay" not in s:
-    s = s.replace("    location / { try_files", relay + "    location / { try_files", 1)
-open(f, "w").write(s)
-P
-if nginx -t; then
+grep -q paperstream-cueduel.conf "$F" || sed -i 's|^    include snippets/paperstream-legal.conf;|&\n    include snippets/paperstream-cueduel.conf;|' "$F"
+if grep -q paperstream-cueduel.conf "$F" && nginx -t; then
   systemctl reload nginx
   echo "nginx reloaded"
 else

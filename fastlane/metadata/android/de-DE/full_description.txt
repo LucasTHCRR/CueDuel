@@ -1,0 +1,17 @@
+Cue Duel ist ein 3D-Billardspiel (8-Ball) für einen oder zwei Spieler, an einem Handy oder online.
+
+Spiel gegen die KI auf vier Stufen. Leicht macht viele Fehler, Schwer und Profi denken voraus und achten darauf, wo die Weiße nach dem Stoß liegen bleibt. Oder gib das Handy an einen Freund weiter, oder spiel online per Raumcode gegen einen Freund.
+
+Funktionen:
+* 3D-Tisch mit Kamera hinter dem Queue und Draufsicht
+* Ziellinie, die zeigt, wohin Objektkugel und Weiße laufen
+* Online-Spiele zu zweit per Raumcode oder aus der Liste offener Spiele, auf Wunsch mit Passwort
+* Drei Grafikstufen, läuft auch auf älteren Handys flüssig
+* Echte 8-Ball-Regeln: Anstoß, offener Tisch, Fouls und Ball in der Hand
+* Replays deiner letzten 12 Partien
+* Statistik mit Gewinnquote je Stufe
+* Deutsch, Englisch, Spanisch und Türkisch
+
+Keine Werbung, keine In-App-Käufe, kein Tracking. Das Spiel läuft offline. Internet wird nur für Online-Spiele genutzt, die du selbst eröffnest oder denen du beitrittst.
+
+Cue Duel ist Open Source unter der GPL-3.0.

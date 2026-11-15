@@ -2,18 +2,17 @@
 
 8-ball pool for Android, played against the computer or a friend on the same phone.
 
-![Cue Duel](assets/store/feature_graphic.png)
+![Cue Duel](art/store/feature_graphic.png)
 
 ## Features
 
-- 3D table with a top view and a camera behind the cue
+- 3D table with a top view and a camera behind the cue, three graphics levels
 - Computer opponent with four levels. Hard and Pro play every candidate shot through
   the simulation and care about where the cue ball ends up.
 - Two players on one device
-- Online and local network games for two. One phone hosts, the other joins by address
-  (same Wi-Fi, a hotspot, or over the internet with UPnP or a forwarded UDP port). If no
-  direct connection works, a relay on the lobby server passes the moves on. Open games are
-  listed with or without a password, or joined with a room code
+- Online games for two. One phone hosts and gets a room code, the other joins with the
+  code or picks the game from the list. Games can have a password. The moves are passed
+  on by a small relay on the lobby server, so no router setup is needed
 - 8-ball rules: break, open table, fouls (cue ball potted, wrong ball first, no rail
   after contact), ball in hand, 8 on the break goes back on the spot
 - Replays of the last 12 games
@@ -23,30 +22,42 @@
 
 ## Building
 
-The game is made with [Godot 4.7](https://godotengine.org/).
-
-1. Install Godot 4.7.2 and the Android export templates.
-2. Point Godot to an Android SDK (Editor Settings, Export, Android).
-3. Export:
+The game is written in Java with [libGDX](https://libgdx.com/). It needs JDK 17 or newer
+and, for the app, an Android SDK (`sdk.dir` in `local.properties`).
 
 ```
-godot --headless --export-release "Android" build/CueDuel.apk
+./gradlew :desktop:jar
+./gradlew :android:apk
 ```
 
-The release keystore is read from the environment variables
-`GODOT_ANDROID_KEYSTORE_RELEASE_PATH`, `GODOT_ANDROID_KEYSTORE_RELEASE_USER` and
-`GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD`.
+The desktop jar lands in `desktop/build/libs`, the unsigned APK in `android/build/libs`.
+`tools/sign.sh` signs the APK with the release key into `dist/`.
 
-## Tests
+`tools/gen_assets.py` creates the ball textures and sounds (needs Pillow).
 
-The simulation, rules and AI run without graphics:
+## Testing
+
+Physics, rules and the AI run without graphics. The test lets the AI play itself on every
+level and checks that games finish, balls stay on the table and the simulation is
+deterministic:
 
 ```
-godot --headless --script tests/sim_test.gd
+./gradlew :core:simTest
 ```
 
-It lets the AI play itself on every level and checks that games finish, pockets work
-and the physics is deterministic.
+The desktop build takes a few switches for testing:
+
+```
+java -jar desktop/build/libs/CueDuel-desktop-*.jar --play --autoplay --speed=4
+```
+
+`--play[=duo]`, `--level=N`, `--top`, `--lang=xx`, `--open=<menu>`, `--autoplay`, `--speed=N`,
+`--shots=sec,...` (screenshots into the working directory), `--quit=sec`,
+`--net-host=name,password`, `--net-code=code,password`, `--net-shoot`.
+
+## Lobby server
+
+`lobby-server/` holds the list of open games and the relay, see its README.
 
 ## License
 

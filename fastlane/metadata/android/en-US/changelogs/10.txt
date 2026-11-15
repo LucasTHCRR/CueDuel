@@ -1,0 +1,7 @@
+- Rebuilt from scratch without a game engine: much smoother on phones, the app is four times smaller
+- Three graphics levels: low, medium, high
+- Online games now always work through a room code, no router setup needed
+- Cleaner pockets and cushions
+- Not compatible with online games of older versions
+- The rack now always has one solid and one stripe in the back corners
+- The screen stays on while you play

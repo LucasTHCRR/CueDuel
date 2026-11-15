@@ -1,0 +1,23 @@
+plugins {
+    id 'java-library'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+compileJava.options.encoding = 'UTF-8'
+
+dependencies {
+    api "com.badlogicgames.gdx:gdx:$gdxVersion"
+    api "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
+}
+
+sourceSets.test.java.srcDirs = ['src/test/java']
+
+// Physik-, Regel- und KI-Test ohne Grafik
+tasks.register('simTest', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'de.paperstream.cueduel.SimTest'
+}

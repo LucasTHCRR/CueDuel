@@ -200,8 +200,17 @@ async def relay_client(reader, writer):
     try:
         if not await ws_handshake(reader, writer):
             return
-        op, data = await asyncio.wait_for(ws_read(reader), 10)
-        msg = json.loads(data)
+        while True:
+            op, data = await asyncio.wait_for(ws_read(reader), 10)
+            if op == 9:
+                await c.send_raw(data, 10)
+            elif op != 10:
+                break
+        try:
+            msg = json.loads(data)
+        except Exception:
+            print("relay bad first frame op", op, data[:80], flush=True)
+            return
         role = str(msg.get("t", ""))
         rid = str(msg.get("id", ""))
         print("relay connect", role, rid, flush=True)

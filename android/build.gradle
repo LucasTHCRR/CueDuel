@@ -1,0 +1,95 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'de.paperstream.cueduel'
+    compileSdk 36
+    buildToolsVersion '36.1.0'
+
+    defaultConfig {
+        applicationId 'de.paperstream.cueduel'
+        minSdk 24
+        targetSdk 36
+        versionCode project.ext.versionCode
+        versionName project.version
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs = ['src/main/java']
+            res.srcDirs = ['res']
+            assets.srcDirs = ['../assets']
+            jniLibs.srcDirs = ['libs']
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+configurations {
+    natives
+}
+
+dependencies {
+    implementation project(':core')
+    implementation "com.badlogicgames.gdx:gdx-backend-android:$gdxVersion"
+    ['arm64-v8a', 'armeabi-v7a', 'x86_64'].each { abi ->
+        natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-$abi"
+        natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-$abi"
+    }
+}
+
+tasks.register('copyAndroidNatives') {
+    doFirst {
+        configurations.natives.copy().files.each { jar ->
+            ['arm64-v8a', 'armeabi-v7a', 'x86_64'].each { abi ->
+                if (jar.name.endsWith("natives-${abi}.jar")) {
+                    def out = file("libs/$abi")
+                    out.mkdirs()
+                    copy {
+                        from zipTree(jar)
+                        into out
+                        include '*.so'
+                    }
+                }
+            }
+        }
+    }
+}
+
+tasks.matching { it.name.contains('merge') && it.name.contains('JniLibFolders') }.configureEach {
+    dependsOn 'copyAndroidNatives'
+}
+
+// rbuild holt nur build/libs zurück
+tasks.register('apk', Copy) {
+    dependsOn 'assembleRelease'
+    from layout.buildDirectory.dir('outputs/apk/release')
+    include '*.apk'
+    into layout.buildDirectory.dir('libs')
+    rename { "CueDuel-${project.version}-unsigned.apk" }
+}

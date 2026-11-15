@@ -1,0 +1,4 @@
+* Taschen sind jetzt echte Löcher im Tisch
+* Kraftregler funktioniert auf Touchscreens
+* Anstoß von fester Position
+* Schärfere Kugeln und Kugel-Symbole

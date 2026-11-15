@@ -1,0 +1,7 @@
+- Komplett neu gebaut, ohne Spiele-Engine: läuft auf Handys deutlich flüssiger, die App ist viermal kleiner
+- Drei Grafikstufen: Niedrig, Mittel, Hoch
+- Online-Spiele laufen jetzt immer über einen Raumcode, ohne Einstellungen am Router
+- Sauberere Taschen und Banden
+- Online nicht kompatibel mit älteren Versionen
+- Im Aufbau liegen hinten jetzt immer eine Volle und eine Halbe in den Ecken
+- Der Bildschirm bleibt beim Spielen an

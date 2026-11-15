@@ -1,5 +1,10 @@
-.godot/
 build/
+.gradle/
+local.properties
+android/libs/
+legacy-godot/
 *.jks
 *.keystore
-android/
+*.apk
+*.idsig
+dist/

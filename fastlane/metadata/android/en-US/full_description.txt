@@ -1,0 +1,17 @@
+Cue Duel is a 3D 8-ball pool game for one or two players, on one phone or online.
+
+Play against the computer on four levels. Easy makes plenty of mistakes, while Hard and Pro think ahead and care about where the cue ball ends up after each shot. Or pass the phone to a friend, or play a friend online with a room code.
+
+Features:
+* 3D table with a camera behind the cue and a top view
+* Aiming line that shows where the object ball and the cue ball will go
+* Online games for two with a room code or from the list of open games, optionally with a password
+* Three graphics levels, runs smoothly on older phones too
+* Real 8-ball rules: break, open table, fouls and ball in hand
+* Replays of your last 12 games
+* Statistics with your win rate per level
+* English, German, Spanish and Turkish
+
+No ads, no in-app purchases, no tracking. The game works offline. Internet is only used for online games you host or join yourself.
+
+Cue Duel is open source under the GPL-3.0.

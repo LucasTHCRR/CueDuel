@@ -1,7 +1,7 @@
 # Cue Duel lobby server
 
-A small list of open games. Hosts register, the app shows the list. The game itself
-runs directly between the two phones, and passwords are checked on the host phone.
+A small list of open games. Hosts register, the app shows the list. The moves of a game
+are passed on by the relay (WebSocket), and passwords are checked on the host phone.
 
 No dependencies, Python 3 only.
 
@@ -18,7 +18,7 @@ location /cueduel/api/ {
 }
 ```
 
-The app uses `https://paperstream.dev/cueduel/api/v1` (`LOBBY_URL` in `scripts/net.gd`).
+The app uses `https://paperstream.dev/cueduel/api/v1` (`lobbyUrl` in `Online.java`).
 
 API:
 

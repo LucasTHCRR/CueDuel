@@ -1,0 +1,4 @@
+* Pockets are now real holes in the table
+* Fixed power slider on touch screens
+* Break is played from a fixed position
+* Sharper balls and ball icons
