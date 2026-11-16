@@ -26,30 +26,55 @@ final class TableView {
         + "void main() {\n  vec4 w = u_world * vec4(a_position, 1.0);\n  v_pos = w.xyz;\n"
         + "  v_normal = (u_world * vec4(a_normal, 0.0)).xyz;\n  v_color = a_color;\n  v_uv = a_texCoord0;\n"
         + "  gl_Position = u_projView * w;\n}\n";
-    private static final String FRAG = "#ifdef GL_ES\nprecision mediump float;\n#endif\n"
-        + "uniform sampler2D u_tex;\nuniform float u_useTex;\nuniform vec3 u_cam;\nuniform float u_spec;\n"
-        + "uniform float u_shine;\nuniform float u_dim;\n"
-        + "varying vec3 v_pos;\nvarying vec3 v_normal;\nvarying vec4 v_color;\nvarying vec2 v_uv;\n"
-        + "void main() {\n  vec3 n = normalize(v_normal);\n  vec3 base = v_color.rgb;\n"
-        + "  if (u_useTex > 0.5) base *= texture2D(u_tex, v_uv).rgb;\n"
-        + "  vec3 l = vec3(0.0, 3.2, 0.0) - v_pos;\n  float d = length(l);\n  l /= d;\n"
-        + "  float att = 1.0 / (1.0 + 0.05 * d * d);\n"
-        + "  float lamp = max(dot(n, l), 0.0) * att * 1.75;\n"
-        + "  float sun = max(dot(n, vec3(0.33, 0.83, 0.45)), 0.0) * 0.34;\n"
-        + "  float hemi = 0.5 + 0.5 * n.y;\n"
-        + "  vec3 light = mix(vec3(0.20, 0.17, 0.15), vec3(0.40, 0.36, 0.32), hemi)\n"
-        + "    + vec3(1.0, 0.94, 0.82) * lamp + vec3(1.0, 0.96, 0.9) * sun;\n"
-        + "  vec3 col = base * light;\n"
-        + "  if (u_spec > 0.0) {\n    vec3 h = normalize(l + normalize(u_cam - v_pos));\n"
-        + "    col += vec3(1.0, 0.97, 0.9) * pow(max(dot(n, h), 0.0), u_shine) * u_spec * min(att * 1.6, 1.0);\n  }\n"
-        + "  col = mix(base, col, v_color.a) * u_dim;\n"
-        + "  gl_FragColor = vec4(col, 1.0);\n}\n";
+    // q: 0 flaches Licht, 1 Lampenlicht mit Glanz, 2 zusätzlich Strukturen und Spiegelglanz
+    private static String frag(int q) {
+        String s = "#ifdef GL_ES\nprecision mediump float;\n#endif\n"
+            + "uniform sampler2D u_tex;\nuniform sampler2D u_noise;\nuniform float u_useTex;\nuniform vec3 u_cam;\n"
+            + "uniform float u_spec;\nuniform float u_shine;\n"
+            + "varying vec3 v_pos;\nvarying vec3 v_normal;\nvarying vec4 v_color;\nvarying vec2 v_uv;\n"
+            + "void main() {\n  vec3 n = normalize(v_normal);\n  vec3 base = v_color.rgb;\n"
+            + "  if (u_useTex > 0.5) base *= texture2D(u_tex, v_uv).rgb;\n";
+        if (q == 2) {
+            s += "  else {\n    float m = v_uv.x;\n"
+                + "    if (m > 0.5 && m < 1.5) base *= 0.88 + 0.17 * texture2D(u_noise, v_pos.xz * 13.0).r"
+                + " + 0.07 * texture2D(u_noise, v_pos.xz * 0.6).g;\n"
+                + "    else if (m > 1.5 && m < 2.5) base *= 0.62 + 0.75 * texture2D(u_noise, vec2(v_pos.x * 2.6, v_pos.z * 0.16)).r;\n"
+                + "    else if (m > 2.5 && m < 3.5) base *= 0.62 + 0.75 * texture2D(u_noise, vec2(v_pos.x * 0.16, v_pos.z * 2.6)).r;\n"
+                + "    else if (m > 3.5) {\n      float p = fract(v_pos.x * 0.9);\n"
+                + "      base *= (0.6 + 0.7 * texture2D(u_noise, vec2(v_pos.x * 1.8 + floor(v_pos.x * 0.9) * 0.37, v_pos.z * 0.08)).r)"
+                + " * smoothstep(0.0, 0.035, p);\n    }\n  }\n";
+        }
+        if (q == 0) {
+            s += "  vec3 col = base * (vec3(0.50, 0.47, 0.43) + vec3(0.55, 0.52, 0.47) * max(n.y, 0.0));\n";
+        } else {
+            s += "  vec3 l = vec3(0.0, 3.2, 0.0) - v_pos;\n  float d = length(l);\n  l /= d;\n"
+                + "  float att = 1.0 / (1.0 + 0.05 * d * d);\n"
+                + "  float lamp = max(dot(n, l), 0.0) * att * 1.75;\n"
+                + "  float sun = max(dot(n, vec3(0.33, 0.83, 0.45)), 0.0) * 0.34;\n"
+                + "  float hemi = 0.5 + 0.5 * n.y;\n"
+                + "  vec3 light = mix(vec3(0.20, 0.17, 0.15), vec3(0.40, 0.36, 0.32), hemi)\n"
+                + "    + vec3(1.0, 0.94, 0.82) * lamp + vec3(1.0, 0.96, 0.9) * sun;\n"
+                + "  vec3 col = base * light;\n"
+                + "  if (u_spec > 0.0) {\n    vec3 v = normalize(u_cam - v_pos);\n    vec3 h = normalize(l + v);\n"
+                + "    float nh = max(dot(n, h), 0.0);\n"
+                + "    col += vec3(1.0, 0.97, 0.9) * pow(nh, u_shine) * u_spec * min(att * 1.6, 1.0);\n";
+            if (q == 2) {
+                s += "    float fr = 1.0 - max(dot(n, v), 0.0);\n    fr = fr * fr * fr;\n"
+                    + "    col += vec3(0.62, 0.56, 0.47) * fr * u_spec * 0.6;\n"
+                    + "    col += vec3(1.0, 0.95, 0.85) * pow(nh, 9.0) * u_spec * 0.12 * att;\n";
+            }
+            s += "  }\n";
+        }
+        return s + "  col = mix(base, col, v_color.a);\n  gl_FragColor = vec4(col, 1.0);\n}\n";
+    }
 
     final PerspectiveCamera cam = new PerspectiveCamera(50, 1, 1);
     float[] fixedCam;
     boolean headLine;
 
     private ShaderProgram shader;
+    private final ShaderProgram[] shaders = new ShaderProgram[3];
+    private Texture noise;
     private Mesh matte, gloss, lamp, sphere, stick;
     private final Texture[] ballTex = new Texture[16];
     private Texture white;
@@ -64,6 +89,7 @@ final class TableView {
     private int count;
     private final Vector3 look = new Vector3(), tp = new Vector3(), tl = new Vector3();
     private boolean follow, stickOn;
+    private float stickTipX, stickTipZ, stickDirX, stickDirZ;
     private final Matrix4 stickM = new Matrix4();
     private final FloatArray lines = new FloatArray();
     private boolean ghostOn;
@@ -86,8 +112,11 @@ final class TableView {
 
     void create() {
         ShaderProgram.pedantic = false;
-        shader = new ShaderProgram(VERT, FRAG);
-        if (!shader.isCompiled()) throw new IllegalStateException(shader.getLog());
+        for (int q = 0; q < 3; q++) {
+            shaders[q] = new ShaderProgram(VERT, frag(q));
+            if (!shaders[q].isCompiled()) throw new IllegalStateException(shaders[q].getLog());
+        }
+        shader = shaders[1];
         imm = new ImmediateModeRenderer20(4000, false, true, 0);
         for (int i = 0; i < 16; i++) {
             rot[i] = new Quaternion();
@@ -115,11 +144,26 @@ final class TableView {
         pm.fill();
         white = new Texture(pm);
         pm.dispose();
+        // Rauschen für Tuch und Holz
+        if (noise != null) noise.dispose();
+        java.util.Random rnd = new java.util.Random(4);
+        com.badlogic.gdx.graphics.Pixmap np = new com.badlogic.gdx.graphics.Pixmap(64, 64,
+            com.badlogic.gdx.graphics.Pixmap.Format.RGB888);
+        for (int y = 0; y < 64; y++) {
+            for (int x = 0; x < 64; x++) {
+                np.drawPixel(x, y, com.badlogic.gdx.graphics.Color.rgba8888(rnd.nextFloat(), rnd.nextFloat(), 0, 1));
+            }
+        }
+        noise = new Texture(np, true);
+        noise.setFilter(Texture.TextureFilter.MipMapLinearLinear, Texture.TextureFilter.Linear);
+        noise.setWrap(Texture.TextureWrap.Repeat, Texture.TextureWrap.Repeat);
+        np.dispose();
     }
 
     void applyQuality() {
         if (quality == Store.quality) return;
         quality = Store.quality;
+        shader = shaders[quality];
         if (sphere != null) sphere.dispose();
         Geo g = new Geo();
         if (quality == 2) g.sphere(BR, 28, 16);
@@ -135,7 +179,8 @@ final class TableView {
         Geo g = new Geo();
         float tw = (float) (Sim.PR - Sim.PL) * S, td = (float) (Sim.PB - Sim.PT) * S;
         // Raum
-        m.color("5b3920").at(0, -3.2f, 0).quadY(30, 30);
+        m.mat(4).color("6b4425").at(0, -3.2f, 0).quadY(30, 30);
+        m.mat(0);
         float[][] walls = {{0, -13, 26, 0.2f}, {0, 13, 26, 0.2f}, {-13, 0, 0.2f, 26}, {13, 0, 0.2f, 26}};
         for (float[] w : walls) {
             m.color("2f5e4a").at(w[0], 1.5f, w[1]).box(w[2], 9.5f, w[3]);
@@ -143,8 +188,9 @@ final class TableView {
                 .box(Math.max(w[2] - 0.05f, 0.3f), 1.6f, Math.max(w[3] - 0.05f, 0.3f));
         }
         // Tuch mit ausgeschnittenen Löchern
-        m.color("0f6a42").at(0, 0, 0);
+        m.mat(1).color("0f6a42").at(0, 0, 0);
         feltSheet(m);
+        m.mat(0);
         // Schächte unter den Löchern
         m.lit(false);
         for (int k = 0; k < 6; k++) {
@@ -165,17 +211,22 @@ final class TableView {
         }
         m.lit(true);
         // Banden
-        m.color("0d5e3a");
+        m.mat(1).color("0d5e3a");
         for (int k = 0; k < 4; k++) cushionStrip(m, k < 2, k % 2 == 0 ? 1 : -1);
+        m.mat(0);
         // Rahmen mit ausgeschnittenen Taschen
         g.color("6e3b1b");
-        for (int k = 0; k < 4; k++) frameStrip(g, k < 2, k % 2 == 0 ? 1 : -1);
-        g.color("5a2d12").at(0, -0.6f, 0).box(tw + 1.2f, 0.3f, td + 1.2f);
+        for (int k = 0; k < 4; k++) {
+            g.mat(k < 2 ? 2 : 3);
+            frameStrip(g, k < 2, k % 2 == 0 ? 1 : -1);
+        }
+        g.mat(2).color("5a2d12").at(0, -0.6f, 0).box(tw + 1.2f, 0.3f, td + 1.2f);
         for (int sx = -1; sx <= 1; sx += 2) {
             for (int sz = -1; sz <= 1; sz += 2) {
                 g.at(sx * (tw / 2 + 0.2f), -1.75f, sz * (td / 2 + 0.2f)).box(0.42f, 2.9f, 0.42f);
             }
         }
+        g.mat(0);
         // Messingringe
         g.color("1b1a19");
         for (int k = 0; k < 6; k++) {
@@ -469,6 +520,10 @@ final class TableView {
         stickOn = on;
         if (!on) return;
         float px = wx(cx - Math.cos(angle) * pull), pz = wz(cy - Math.sin(angle) * pull);
+        stickTipX = px * 1.03f;
+        stickTipZ = pz * 1.02f;
+        stickDirX = (float) -Math.cos(angle);
+        stickDirZ = (float) -Math.sin(angle);
         stickM.idt().translate(px, BR + 0.012f, pz).rotateRad(Vector3.Y, MathUtils.PI - (float) angle)
             .rotateRad(Vector3.Z, 4 * MathUtils.degreesToRadians);
     }
@@ -579,8 +634,8 @@ final class TableView {
         // Niedrig: Szene kleiner rendern und hochskalieren
         boolean low = quality == 0;
         if (low) {
-            int fw = Math.max(1, Math.round(Gdx.graphics.getBackBufferWidth() * 0.62f));
-            int fh = Math.max(1, Math.round(Gdx.graphics.getBackBufferHeight() * 0.62f));
+            int fw = Math.max(1, Math.round(Gdx.graphics.getBackBufferWidth() * 0.5f));
+            int fh = Math.max(1, Math.round(Gdx.graphics.getBackBufferHeight() * 0.5f));
             if (fbo == null || fbo.getWidth() != fw || fbo.getHeight() != fh) {
                 if (fbo != null) fbo.dispose();
                 fbo = new com.badlogic.gdx.graphics.glutils.FrameBuffer(
@@ -600,14 +655,16 @@ final class TableView {
         shader.setUniformMatrix("u_projView", cam.combined);
         shader.setUniformMatrix("u_world", ident);
         shader.setUniformf("u_cam", cam.position);
-        shader.setUniformf("u_dim", dim);
         shader.setUniformi("u_tex", 0);
+        shader.setUniformi("u_noise", 1);
+        noise.bind(1);
+        Gdx.gl.glActiveTexture(GL20.GL_TEXTURE0);
         shader.setUniformf("u_useTex", 0f);
         shader.setUniformf("u_spec", 0f);
         shader.setUniformf("u_shine", 24f);
         white.bind(0);
         matte.render(shader, GL20.GL_TRIANGLES);
-        shader.setUniformf("u_spec", quality == 2 ? 0.32f : 0f);
+        shader.setUniformf("u_spec", quality == 2 ? 0.45f : 0f);
         gloss.render(shader, GL20.GL_TRIANGLES);
         if (follow || fixedCam != null) {
             shader.setUniformf("u_spec", 0f);
@@ -619,10 +676,20 @@ final class TableView {
         gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         gl.glDepthMask(false);
         imm.begin(cam.combined, GL20.GL_TRIANGLES);
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < count && quality > 0; i++) {
             if (!shown[i] || bh[i] < BR * 0.5f) continue;
             float x = wx(bx[i]), z = wz(by[i]);
-            blob(x + x * 0.05f, z + z * 0.035f, BR * 1.55f, 0.55f * dim);
+            if (quality == 2) {
+                blob(x + x * 0.07f, z + z * 0.05f, BR * 2.3f, 0.42f);
+                blob(x + x * 0.02f, z + z * 0.015f, BR * 1.15f, 0.75f);
+            } else {
+                blob(x + x * 0.05f, z + z * 0.035f, BR * 1.55f, 0.55f);
+            }
+        }
+        if (stickOn && quality > 0) {
+            // Schatten des Queues auf dem Tuch
+            float a = quality == 2 ? 0.3f : 0.18f;
+            quadLine(stickTipX, stickTipZ, stickTipX + stickDirX * 3.2f, stickTipZ + stickDirZ * 3.2f, 0.035f, 0.0035f, 0, 0, 0, a);
         }
         if (headLine) quadLine(wx(Sim.PL), wz(Sim.HEAD_Y), wx(Sim.PR), wz(Sim.HEAD_Y), 0.006f, 0.003f, 1, 1, 1, 0.35f);
         for (int i = 0; i + 7 < lines.size; i += 8) {
@@ -636,8 +703,8 @@ final class TableView {
 
         shader.bind();
         shader.setUniformf("u_useTex", 1f);
-        shader.setUniformf("u_spec", quality == 2 ? 0.85f : (quality == 1 ? 0.6f : 0f));
-        shader.setUniformf("u_shine", 70f);
+        shader.setUniformf("u_spec", quality == 2 ? 1.0f : (quality == 1 ? 0.6f : 0f));
+        shader.setUniformf("u_shine", quality == 2 ? 110f : 60f);
         for (int i = 0; i < count; i++) {
             if (!shown[i]) continue;
             world.idt().translate(wx(bx[i]), bh[i], wz(by[i])).rotate(rot[i]).scale(bs[i], bs[i], bs[i]);
@@ -706,7 +773,8 @@ final class TableView {
     }
 
     void dispose() {
-        shader.dispose();
+        for (ShaderProgram p : shaders) p.dispose();
+        noise.dispose();
         matte.dispose();
         gloss.dispose();
         lamp.dispose();

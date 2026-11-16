@@ -5,3 +5,4 @@
 - Online nicht kompatibel mit älteren Versionen
 - Im Aufbau liegen hinten jetzt immer eine Volle und eine Halbe in den Ecken
 - Der Bildschirm bleibt beim Spielen an
+- Grafikstufen unterscheiden sich jetzt deutlich: Niedrig ist flach und schnell, Hoch bringt Tuch- und Holzstruktur, glänzende Kugeln und kräftigere Schatten

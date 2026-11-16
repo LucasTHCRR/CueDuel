@@ -16,7 +16,7 @@ final class Geo {
     final FloatArray v = new FloatArray();
     final ShortArray idx = new ShortArray();
     final Matrix4 tr = new Matrix4();
-    private float r = 1, g = 1, b = 1, a = 1;
+    private float r = 1, g = 1, b = 1, a = 1, mat;
     private final Vector3 tp = new Vector3(), tn = new Vector3();
     private int count;
 
@@ -41,6 +41,12 @@ final class Geo {
         return this;
     }
 
+    // Materialnummer für die Stufe Hoch: 1 Tuch, 2/3 Holz längs/quer, 4 Boden
+    Geo mat(int m) {
+        mat = m;
+        return this;
+    }
+
     Geo at(float x, float y, float z) {
         tr.idt().translate(x, y, z);
         return this;
@@ -56,7 +62,7 @@ final class Geo {
         tn.set(nx, ny, nz).rot(tr).nor();
         v.addAll(tp.x, tp.y, tp.z, tn.x, tn.y, tn.z);
         v.addAll(r, g, b, a);
-        v.addAll(u, w);
+        v.addAll(mat > 0 ? mat : u, w);
         return count++;
     }
 
