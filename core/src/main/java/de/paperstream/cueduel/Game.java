@@ -21,7 +21,7 @@ import com.badlogic.gdx.utils.JsonValue;
 
 // Spielablauf: Züge, Eingabe, KI, Replays, Online und Statistik. Die Logik läuft fest mit 60 Hz.
 public final class Game extends ApplicationAdapter implements Online.Listener {
-    public static final String VERSION = "2.0.0-BETA";
+    public static final String VERSION = "2.0.1-BETA";
     static final int PS = 0, AS = 1, PP = 2, AP = 3, PF = 4, AF = 5, RUN = 6, BEST = 7;
 
     enum St { IDLE, PLACE, AIM, AI, STRIKE, MOVING, RP, OVER, WAIT }
@@ -785,7 +785,7 @@ public final class Game extends ApplicationAdapter implements Online.Listener {
         }
         if (state == St.AIM && ui.fine != 0) {
             ui.fineT += dt;
-            if (ui.fineT > 0.3f) aim += ui.fine * dt * 0.12;
+            if (ui.fineT > 0.3f) aim += ui.fine * dt * 0.06;
         }
         view.sync(sim, dt);
         boolean showStick = sim.alive[0] && (state == St.AIM || state == St.AI || state == St.STRIKE || state == St.RP);
@@ -892,7 +892,7 @@ public final class Game extends ApplicationAdapter implements Online.Listener {
         public boolean touchDragged(int x, int y, int pointer) {
             if (pointer != 0 || !dragging) return false;
             if (state == St.AIM) {
-                aim += (x - dragX) / Math.max(1, Gdx.graphics.getWidth()) * 2.4;
+                aim += (x - dragX) / Math.max(1, Gdx.graphics.getWidth()) * 1.0;
             } else if (state == St.PLACE && grabbing) {
                 double[] t = view.screenToTable(x, y);
                 if (t != null) {

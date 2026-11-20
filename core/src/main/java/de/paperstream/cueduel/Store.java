@@ -26,7 +26,7 @@ public final class Store {
     }
 
     public static int level = 2, quality = -1;
-    public static boolean haptic = true, mute = false;
+    public static boolean haptic = true, mute = false, tutorialSeen = false;
     public static String lang = "";
     public static int games, wins, losses, streak, bestStreak, pots, shots, fouls;
     public static final int[][] levels = new int[4][2];
@@ -46,6 +46,7 @@ public final class Store {
                 level = Math.max(1, Math.min(4, c.getInt("level", 2)));
                 quality = Math.max(0, Math.min(2, c.getInt("quality", 1)));
                 haptic = c.getBoolean("haptic", true);
+                tutorialSeen = c.getBoolean("tutorial", false);
                 mute = c.getBoolean("mute", false);
                 lang = c.getString("lang", "");
             }
@@ -99,7 +100,7 @@ public final class Store {
     public static void save() {
         StringBuilder b = new StringBuilder(4096);
         b.append("{\"cfg\":{\"level\":").append(level).append(",\"quality\":").append(quality)
-            .append(",\"haptic\":").append(haptic).append(",\"mute\":").append(mute)
+            .append(",\"haptic\":").append(haptic).append(",\"tutorial\":").append(tutorialSeen).append(",\"mute\":").append(mute)
             .append(",\"lang\":\"").append(lang).append("\"},\"stats\":{\"games\":").append(games)
             .append(",\"wins\":").append(wins).append(",\"losses\":").append(losses)
             .append(",\"streak\":").append(streak).append(",\"best_streak\":").append(bestStreak)

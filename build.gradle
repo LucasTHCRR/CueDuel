@@ -9,8 +9,8 @@ buildscript {
 }
 
 allprojects {
-    version = '2.0.0-BETA'
-    ext.versionCode = 10
+    version = '2.0.1-BETA'
+    ext.versionCode = 11
     ext.gdxVersion = '1.14.2'
     repositories {
         google()

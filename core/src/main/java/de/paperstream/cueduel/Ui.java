@@ -360,7 +360,7 @@ final class Ui {
             public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
                 fine = dir;
                 fineT = 0;
-                if (game.state == Game.St.AIM) game.aim += dir * 0.004;
+                if (game.state == Game.St.AIM) game.aim += dir * 0.002;
                 return true;
             }
 
@@ -552,6 +552,9 @@ final class Ui {
             case "result":
                 buildResult();
                 break;
+            case "tutorial":
+                buildTutorial();
+                break;
             default:
                 break;
         }
@@ -573,6 +576,7 @@ final class Ui {
         full(btn(L.t("Play"), cont ? C_BTN : C_GREEN, () -> {
             closeAll();
             game.startGame(false, false);
+            if (!Store.tutorialSeen) openTutorial();
         }));
         full(btn(L.t("2 players"), C_BTN, () -> {
             closeAll();
@@ -768,6 +772,7 @@ final class Ui {
         int ls = 0;
         for (int i = 0; i < L.LANGS.length; i++) if (L.LANGS[i].equals(tLang)) ls = i;
         optionRow("Language", L.NAMES, ls, k -> tLang = L.LANGS[k]);
+        full(btn(L.t("Tutorial"), C_BTN, this::openTutorial));
         Table r = new Table();
         r.add(btn(L.t("Cancel"), C_BTN, this::closeTop)).growX().height(64).padRight(10).uniformX();
         r.add(btn(L.t("Apply"), C_GREEN, this::applySettings)).growX().height(64).uniformX();
@@ -791,6 +796,46 @@ final class Ui {
         else show();
         updateSoundBtn();
         updateHud();
+    }
+
+    // ---------- tutorial ----------
+
+    private static final String[][] TUT = {
+        {"Welcome to Cue Duel", "Pot all balls of your group, then the black 8. Whoever pots the 8 cleanly wins."},
+        {"Aiming", "Drag across the table to turn the cue. Use the arrow buttons for fine aiming. The line shows where the balls will go."},
+        {"Power and shot", "Set the power with the slider, then tap Shoot."},
+        {"Groups", "The first ball you pot after the break decides your group: solids or stripes. Balls shows what is left."},
+        {"Fouls", "Potting the cue ball, hitting the wrong ball first or no rail after contact is a foul. Your opponent then gets ball in hand and can place the cue ball anywhere."},
+        {"Views", "View switches between the camera behind the cue and the top view. Have fun!"},
+    };
+    private int tutStep;
+
+    void openTutorial() {
+        tutStep = 0;
+        open("tutorial");
+    }
+
+    private void endTutorial() {
+        Store.tutorialSeen = true;
+        Store.save();
+        closeTop();
+    }
+
+    private void buildTutorial() {
+        title(TUT[tutStep][0]);
+        card.add(wrap(L.t(TUT[tutStep][1]), f22, Color.WHITE)).growX().padBottom(10).row();
+        card.add(label((tutStep + 1) + " / " + TUT.length, f18, C_DIM)).row();
+        boolean last = tutStep == TUT.length - 1;
+        Table r = new Table();
+        r.add(btn(L.t("Skip"), C_BTN, this::endTutorial)).growX().height(64).padRight(10).uniformX();
+        r.add(btn(L.t(last ? "Play" : "Next"), C_GREEN, () -> {
+            if (last) endTutorial();
+            else {
+                tutStep++;
+                show();
+            }
+        })).growX().height(64).uniformX();
+        card.add(r).growX().padTop(16);
     }
 
     // ---------- statistics ----------

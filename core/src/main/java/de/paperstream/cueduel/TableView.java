@@ -634,8 +634,8 @@ final class TableView {
         // Niedrig: Szene kleiner rendern und hochskalieren
         boolean low = quality == 0;
         if (low) {
-            int fw = Math.max(1, Math.round(Gdx.graphics.getBackBufferWidth() * 0.5f));
-            int fh = Math.max(1, Math.round(Gdx.graphics.getBackBufferHeight() * 0.5f));
+            int fw = Math.max(1, Math.round(Gdx.graphics.getBackBufferWidth() * 0.7f));
+            int fh = Math.max(1, Math.round(Gdx.graphics.getBackBufferHeight() * 0.7f));
             if (fbo == null || fbo.getWidth() != fw || fbo.getHeight() != fh) {
                 if (fbo != null) fbo.dispose();
                 fbo = new com.badlogic.gdx.graphics.glutils.FrameBuffer(
@@ -675,6 +675,9 @@ final class TableView {
         gl.glEnable(GL20.GL_BLEND);
         gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         gl.glDepthMask(false);
+        // Schatten etwas zur Kamera ziehen, sonst flackern sie mit dem Tuch
+        gl.glEnable(GL20.GL_POLYGON_OFFSET_FILL);
+        gl.glPolygonOffset(-2f, -4f);
         imm.begin(cam.combined, GL20.GL_TRIANGLES);
         for (int i = 0; i < count && quality > 0; i++) {
             if (!shown[i] || bh[i] < BR * 0.5f) continue;
@@ -698,6 +701,7 @@ final class TableView {
         }
         if (ghostOn) ring(wx(ghostX), wz(ghostY), BR - 0.012f, BR, 0.016f);
         imm.end();
+        gl.glDisable(GL20.GL_POLYGON_OFFSET_FILL);
         gl.glDepthMask(true);
         gl.glDisable(GL20.GL_BLEND);
 
@@ -727,7 +731,7 @@ final class TableView {
             blit.getProjectionMatrix().setToOrtho2D(0, 0, 1, 1);
             blit.disableBlending();
             blit.begin();
-            blit.draw(fbo.getColorBufferTexture(), 0, 0, 1, 1, 0, 0, 1, 1);
+            blit.draw(fbo.getColorBufferTexture(), 0, 0, 1, 1, 0, 1, 1, 0);
             blit.end();
         }
     }
