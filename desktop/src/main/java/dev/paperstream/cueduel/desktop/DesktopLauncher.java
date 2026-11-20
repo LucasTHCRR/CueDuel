@@ -1,9 +1,9 @@
-package de.paperstream.cueduel.desktop;
+package dev.paperstream.cueduel.desktop;
 
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 
-import de.paperstream.cueduel.Game;
+import dev.paperstream.cueduel.Game;
 
 public class DesktopLauncher {
     public static void main(String[] args) {

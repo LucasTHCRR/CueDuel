@@ -3,12 +3,12 @@ plugins {
 }
 
 android {
-    namespace 'de.paperstream.cueduel'
+    namespace 'dev.paperstream.cueduel'
     compileSdk 36
     buildToolsVersion '36.1.0'
 
     defaultConfig {
-        applicationId 'de.paperstream.cueduel'
+        applicationId 'dev.paperstream.cueduel'
         minSdk 24
         targetSdk 36
         versionCode project.ext.versionCode
@@ -92,4 +92,12 @@ tasks.register('apk', Copy) {
     include '*.apk'
     into layout.buildDirectory.dir('libs')
     rename { "CueDuel-${project.version}-unsigned.apk" }
+}
+
+tasks.register('aab', Copy) {
+    dependsOn 'bundleRelease'
+    from layout.buildDirectory.dir('outputs/bundle/release')
+    include '*.aab'
+    into layout.buildDirectory.dir('libs')
+    rename { "CueDuel-${project.version}-unsigned.aab" }
 }

@@ -1,4 +1,4 @@
-package de.paperstream.cueduel;
+package dev.paperstream.cueduel;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;

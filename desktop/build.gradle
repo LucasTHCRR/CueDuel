@@ -23,6 +23,6 @@ jar {
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/INDEX.LIST'
     manifest {
-        attributes 'Main-Class': 'de.paperstream.cueduel.desktop.DesktopLauncher'
+        attributes 'Main-Class': 'dev.paperstream.cueduel.desktop.DesktopLauncher'
     }
 }

@@ -1,11 +1,11 @@
-package de.paperstream.cueduel.android;
+package dev.paperstream.cueduel.android;
 
 import android.os.Bundle;
 
 import com.badlogic.gdx.backends.android.AndroidApplication;
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration;
 
-import de.paperstream.cueduel.Game;
+import dev.paperstream.cueduel.Game;
 
 public class AndroidLauncher extends AndroidApplication {
     @Override

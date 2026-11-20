@@ -1,4 +1,4 @@
-package de.paperstream.cueduel;
+package dev.paperstream.cueduel;
 
 public final class Rules {
     public static final int NONE = 0, SOLID = 1, STRIPE = 2, EIGHT = 3, CUE = 4;

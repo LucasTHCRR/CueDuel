@@ -19,5 +19,5 @@ sourceSets.test.java.srcDirs = ['src/test/java']
 // Physik-, Regel- und KI-Test ohne Grafik
 tasks.register('simTest', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'de.paperstream.cueduel.SimTest'
+    mainClass = 'dev.paperstream.cueduel.SimTest'
 }

@@ -1,4 +1,4 @@
-package de.paperstream.cueduel;
+package dev.paperstream.cueduel;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -21,7 +21,7 @@ import com.badlogic.gdx.utils.JsonValue;
 
 // Spielablauf: Züge, Eingabe, KI, Replays, Online und Statistik. Die Logik läuft fest mit 60 Hz.
 public final class Game extends ApplicationAdapter implements Online.Listener {
-    public static final String VERSION = "2.0.1-BETA";
+    public static final String VERSION = "2.0.2-RELEASE";
     static final int PS = 0, AS = 1, PP = 2, AP = 3, PF = 4, AF = 5, RUN = 6, BEST = 7;
 
     enum St { IDLE, PLACE, AIM, AI, STRIKE, MOVING, RP, OVER, WAIT }
@@ -172,6 +172,8 @@ public final class Game extends ApplicationAdapter implements Online.Listener {
     // ---------- flow ----------
 
     void startGame(boolean twoPlayers, boolean viaNet) {
+        wantAgain = false;
+        peerAgain = false;
         if (!viaNet) leaveOnline();
         cancelAi();
         duo = twoPlayers;
@@ -513,14 +515,18 @@ public final class Game extends ApplicationAdapter implements Online.Listener {
         else startGame(duo, false);
     }
 
+    // Neue Runde nur, wenn beide zustimmen
+    private boolean wantAgain, peerAgain;
+
     void onlineAgain() {
-        if (!online) return;
-        if (net.host) {
+        if (!online || wantAgain) return;
+        wantAgain = true;
+        net.send("{\"t\":\"again\"}");
+        if (peerAgain && net.host) {
             ui.closeAll();
             startGame(true, true);
         } else {
-            net.send("{\"t\":\"again\"}");
-            ui.toast(L.t("Waiting for the host…"));
+            ui.toast(L.t("Waiting for the opponent…"));
         }
     }
 
@@ -585,7 +591,14 @@ public final class Game extends ApplicationAdapter implements Online.Listener {
                 startGame(true, true);
                 break;
             case "again":
-                if (online && net.host) onlineAgain();
+                if (!online) return;
+                peerAgain = true;
+                if (wantAgain && net.host) {
+                    ui.closeAll();
+                    startGame(true, true);
+                } else if (!wantAgain) {
+                    ui.toast(L.t("Your opponent wants a rematch"));
+                }
                 break;
             case "shot":
                 if (state != St.WAIT) return;

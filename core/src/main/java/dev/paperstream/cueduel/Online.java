@@ -1,4 +1,4 @@
-package de.paperstream.cueduel;
+package dev.paperstream.cueduel;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
